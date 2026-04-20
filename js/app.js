@@ -1147,4 +1147,8 @@ class App {
 
 window.addEventListener('DOMContentLoaded', () => {
     window.app = new App();
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('debugLoading') === '1') {
+        window.app._showLoading();
+    }
 });

@@ -26,6 +26,8 @@
     --step-h: 0px;
     --footer-h: 0px;
     --color-text-secondary: var(--text-secondary);
+    --logo-size-home: clamp(96px, 22vw, 120px);
+    --logo-size-loading: clamp(88px, 18vw, 112px);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -194,8 +196,8 @@ body {
 }
 
 .home-camera-icon .brand-logo {
-    width: 64px;
-    height: 64px;
+    width: var(--logo-size-home);
+    height: var(--logo-size-home);
     display: block;
     object-fit: contain;
 }
@@ -390,8 +392,8 @@ body {
 }
 
 .loading-logo {
-    width: 64px;
-    height: 64px;
+    width: var(--logo-size-loading);
+    height: var(--logo-size-loading);
     display: block;
     object-fit: contain;
     opacity: 0.4;
