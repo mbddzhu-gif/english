@@ -1,0 +1,16 @@
+{
+  "name": "english-learning-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.3"
+  },
+  "dependencies": {
+    "ws": "^8.20.0"
+  }
+}

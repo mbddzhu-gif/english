@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>英语学习 - 看图学单词</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <header id="app-header">
+            <button id="btn-back" class="header-btn hidden" aria-label="返回">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </button>
+            <h1 id="header-title">看图学英语</h1>
+            <button id="btn-home" class="header-btn hidden" aria-label="首页">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </button>
+        </header>
+
+        <div id="step-indicator" class="hidden">
+            <div class="step active" data-step="1">
+                <div class="step-circle">1</div>
+                <span class="step-label">识别</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="2">
+                <div class="step-circle">2</div>
+                <span class="step-label">跟读</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" data-step="3">
+                <div class="step-circle">3</div>
+                <span class="step-label">对话</span>
+            </div>
+        </div>
+
+        <section id="page-home" class="page active">
+            <div class="home-content">
+                <div class="home-hero">
+                    <div class="hero-icon">📷</div>
+                    <h2>拍照识物，轻松学英语</h2>
+                    <p>拍摄或上传一张图片，AI帮你识别物体并学习对应英语</p>
+                </div>
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                    </div>
+                    <p class="upload-text">点击上传图片或拖拽到此处</p>
+                    <p class="upload-hint">支持 JPG、PNG 格式</p>
+                    <input type="file" id="file-input" accept="image/*" hidden>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-primary btn-large" id="btn-camera">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        拍照识别
+                    </button>
+                    <button class="btn btn-outline btn-large" id="btn-upload">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                        从相册选择
+                    </button>
+                </div>
+                <button class="btn btn-outline btn-history" id="btn-history">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    学习记录
+                </button>
+            </div>
+        </section>
+
+        <section id="page-camera" class="page">
+            <div class="camera-container">
+                <video id="camera-video" autoplay playsinline></video>
+                <canvas id="camera-canvas" hidden></canvas>
+                <div class="camera-overlay">
+                    <div class="camera-frame"></div>
+                </div>
+                <div class="camera-controls">
+                    <button class="btn btn-circle btn-capture" id="btn-capture">
+                        <div class="capture-inner"></div>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-loading" class="page">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <p class="loading-text" id="loading-text">正在识别图片中的物体...</p>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" id="progress-fill"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-result" class="page">
+            <div class="result-content">
+                <div class="result-image-wrapper">
+                    <img id="result-image" src="" alt="识别图片" loading="lazy" decoding="async">
+                </div>
+                <div class="result-card" id="result-card">
+                    <div class="result-word-section">
+                        <div class="result-english" id="result-english"></div>
+                        <div class="result-phonetic" id="result-phonetic"></div>
+                        <div class="result-chinese" id="result-chinese"></div>
+                        <div class="result-category" id="result-category"></div>
+                    </div>
+                    <button class="btn btn-audio" id="btn-play-word" title="播放发音">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+                    </button>
+                </div>
+                <div class="result-phrases" id="result-phrases">
+                    <h3 class="section-title">实用短语</h3>
+                    <div class="phrase-list" id="phrase-list"></div>
+                </div>
+                <div class="result-actions">
+                    <button class="btn btn-primary btn-large" id="btn-start-practice">
+                        开始跟读练习
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                    <button class="btn btn-outline" id="btn-retry">
+                        重新拍照
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-practice" class="page">
+            <div class="practice-content">
+                <div class="practice-phrase-card">
+                    <div class="practice-phrase" id="practice-phrase"></div>
+                    <div class="practice-translation" id="practice-translation"></div>
+                    <button class="btn btn-audio" id="btn-listen-phrase" title="听示范">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+                    </button>
+                </div>
+                <div class="practice-record-section">
+                    <canvas id="waveform-canvas" width="300" height="80"></canvas>
+                    <div class="record-status" id="record-status">点击下方按钮开始跟读</div>
+                    <div class="record-timer" id="record-timer"></div>
+                    <div class="record-controls">
+                        <button class="btn btn-circle btn-record" id="btn-record">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="practice-result hidden" id="practice-result">
+                    <div class="score-ring" id="score-ring">
+                        <div class="score-value" id="score-value">0</div>
+                        <div class="score-label">综合评分</div>
+                    </div>
+                    <div class="score-details">
+                        <div class="score-item" data-dimension="accuracy">
+                            <span class="score-item-label">准确度 <span class="tooltip-trigger">ⓘ</span></span>
+                            <div class="score-bar"><div class="score-bar-fill" id="score-accuracy"></div></div>
+                            <span class="score-item-value" id="score-accuracy-val">0</span>
+                            <div class="dimension-tooltip" id="tooltip-accuracy">
+                                <div class="tooltip-title">准确度 (Accuracy)</div>
+                                <div class="tooltip-desc">衡量每个音素的发音与标准发音的匹配程度</div>
+                                <div class="tooltip-issues" id="tooltip-accuracy-issues"></div>
+                                <div class="tooltip-tips" id="tooltip-accuracy-tips"></div>
+                            </div>
+                        </div>
+                        <div class="score-item" data-dimension="fluency">
+                            <span class="score-item-label">流利度 <span class="tooltip-trigger">ⓘ</span></span>
+                            <div class="score-bar"><div class="score-bar-fill" id="score-fluency"></div></div>
+                            <span class="score-item-value" id="score-fluency-val">0</span>
+                            <div class="dimension-tooltip" id="tooltip-fluency">
+                                <div class="tooltip-title">流利度 (Fluency)</div>
+                                <div class="tooltip-desc">衡量朗读的节奏、语速和停顿是否自然流畅</div>
+                                <div class="tooltip-issues" id="tooltip-fluency-issues"></div>
+                                <div class="tooltip-tips" id="tooltip-fluency-tips"></div>
+                            </div>
+                        </div>
+                        <div class="score-item" data-dimension="standard">
+                            <span class="score-item-label">标准度 <span class="tooltip-trigger">ⓘ</span></span>
+                            <div class="score-bar"><div class="score-bar-fill" id="score-standard"></div></div>
+                            <span class="score-item-value" id="score-standard-val">0</span>
+                            <div class="dimension-tooltip" id="tooltip-standard">
+                                <div class="tooltip-title">标准度 (Standard)</div>
+                                <div class="tooltip-desc">衡量整体发音的规范程度，包括重音、语调等</div>
+                                <div class="tooltip-issues" id="tooltip-standard-issues"></div>
+                                <div class="tooltip-tips" id="tooltip-standard-tips"></div>
+                            </div>
+                        </div>
+                        <div class="score-item" data-dimension="integrity">
+                            <span class="score-item-label">完整度 <span class="tooltip-trigger">ⓘ</span></span>
+                            <div class="score-bar"><div class="score-bar-fill" id="score-integrity"></div></div>
+                            <span class="score-item-value" id="score-integrity-val">0</span>
+                            <div class="dimension-tooltip" id="tooltip-integrity">
+                                <div class="tooltip-title">完整度 (Integrity)</div>
+                                <div class="tooltip-desc">衡量是否完整朗读了所有内容，有无漏读或增读</div>
+                                <div class="tooltip-issues" id="tooltip-integrity-issues"></div>
+                                <div class="tooltip-tips" id="tooltip-integrity-tips"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="word-comparison" id="word-comparison"></div>
+                    <div class="score-feedback" id="score-feedback"></div>
+                </div>
+                <div class="practice-actions hidden" id="practice-actions">
+                    <button class="btn btn-outline" id="btn-play-recording" style="display:none">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
+                        播放录音
+                    </button>
+                    <button class="btn btn-primary btn-large" id="btn-next-step">
+                        进入场景对话
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                    <button class="btn btn-outline" id="btn-retry-practice">重新跟读</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-scene" class="page">
+            <div class="scene-content">
+                <div class="scene-image-wrapper">
+                    <img id="scene-image" src="" alt="场景图片" loading="lazy" decoding="async">
+                    <div class="scene-loading" id="scene-loading">
+                        <div class="loading-spinner small"></div>
+                        <span>正在生成场景图片...</span>
+                    </div>
+                </div>
+                <div class="scene-dialogue" id="scene-dialogue">
+                    <h3 class="section-title">场景对话</h3>
+                    <div class="dialogue-reference" id="dialogue-reference">
+                        <div class="reference-header">📋 原始对话参考</div>
+                        <div class="reference-content" id="reference-content"></div>
+                    </div>
+                    <div class="dialogue-list" id="dialogue-list"></div>
+                </div>
+                <div class="scene-practice" id="scene-practice">
+                    <div class="practice-prompt" id="practice-prompt">点击下方按钮开始对话练习</div>
+                    <div class="scene-turn-status hidden" id="scene-turn-status">
+                        <div class="turn-indicator" id="turn-indicator">
+                            <span class="turn-dot"></span>
+                            <span class="turn-text">对方正在说话...</span>
+                        </div>
+                    </div>
+                    <div class="practice-input-area" id="practice-input-area">
+                        <button class="btn btn-circle btn-mic" id="btn-scene-mic" title="按住录音">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+                        </button>
+                        <button class="btn btn-circle btn-rerecord hidden" id="btn-scene-rerecord" title="重新录音">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+                        </button>
+                        <input type="text" class="text-input" id="scene-text-input" placeholder="输入你的回答...">
+                        <button class="btn btn-primary btn-send" id="btn-scene-send">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                        </button>
+                    </div>
+                    <div class="scene-start-area" id="scene-start-area">
+                        <button class="btn btn-primary btn-block" id="btn-start-dialogue">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            开始对话练习
+                        </button>
+                    </div>
+                    <div class="error-report-panel hidden" id="error-report-panel">
+                        <div class="error-report-summary" id="error-report-summary"></div>
+                        <div class="error-report-weak" id="error-report-weak"></div>
+                    </div>
+                </div>
+                <div class="scene-actions">
+                    <button class="btn btn-outline" id="btn-restart">重新开始</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-history" class="page">
+            <div class="history-content">
+                <div class="history-header-bar">
+                    <h2 class="history-title">📚 学习记录</h2>
+                    <button class="btn btn-outline btn-sm" id="btn-clear-history">清空记录</button>
+                </div>
+                <div class="history-list" id="history-list">
+                    <div class="history-empty" id="history-empty">
+                        <div class="history-empty-icon">📖</div>
+                        <p>还没有学习记录</p>
+                        <p class="history-empty-hint">拍照识物后，学习记录会自动保存在这里</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/speech.js"></script>
+    <script src="js/scoring.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/phrase.js"></script>
+    <script src="js/scene.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
