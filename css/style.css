@@ -62,6 +62,7 @@ body {
     background: var(--white);
     border-top: 1px solid rgba(0,0,0,0.04);
     z-index: 90;
+    pointer-events: none;
 }
 
 #app-header {
@@ -156,7 +157,7 @@ body {
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
 .home-content {
-    padding: 24px 20px;
+    padding: 24px 20px calc(24px + var(--footer-h));
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -195,6 +196,8 @@ body {
 .home-camera-icon .brand-logo {
     width: 64px;
     height: 64px;
+    display: block;
+    object-fit: contain;
 }
 
 .home-hero h2 {
@@ -389,6 +392,8 @@ body {
 .loading-logo {
     width: 64px;
     height: 64px;
+    display: block;
+    object-fit: contain;
     opacity: 0.4;
     animation: fadeBreath 2.4s ease-in-out infinite;
     will-change: opacity;

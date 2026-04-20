@@ -11,7 +11,9 @@ class XunfeiSpeech {
     async _getAuthUrl(type) {
         console.log('正在获取讯飞认证URL...');
         try {
-            const response = await fetch(`${this.proxyUrl}/api/xunfei/auth-${type}`);
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 30000);
+            const response = await fetch(`${this.proxyUrl}/api/xunfei/auth-${type}`, { signal: controller.signal }).finally(() => clearTimeout(timer));
             if (!response.ok) {
                 throw new Error(`获取认证失败: ${response.status} ${response.statusText}`);
             }
@@ -19,6 +21,9 @@ class XunfeiSpeech {
             console.log('获取认证URL成功:', data.url);
             return data.url;
         } catch (error) {
+            if (error && error.name === 'AbortError') {
+                throw new Error('获取认证超时，请稍后重试');
+            }
             console.error('获取认证URL失败:', error);
             throw error;
         }

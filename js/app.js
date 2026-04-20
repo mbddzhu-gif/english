@@ -926,7 +926,7 @@ class App {
                 const slow = document.getElementById('loading-slow');
                 if (slow) slow.classList.remove('hidden');
             }
-        }, 15000);
+        }, 30000);
 
         if (loadingPage) loadingPage.style.display = 'block';
         this._updateViewportSizing();

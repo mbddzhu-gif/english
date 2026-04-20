@@ -8,6 +8,7 @@ class MinimaxAPI {
         this.ttsModel = config.ttsModel || 'speech-2.8-hd';
         this.ttsVoice = config.ttsVoice || 'English_Graceful_Lady';
         this.imageModel = config.imageModel || 'image-01';
+        this.timeoutMs = 30000;
     }
 
     isConfigured() { return true; }
@@ -45,6 +46,16 @@ class MinimaxAPI {
         }
     }
 
+    async _fetchWithTimeout(url, options = {}, timeoutMs = this.timeoutMs) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            return await fetch(url, { ...options, signal: controller.signal });
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
     async chatCompletion(messages, options = {}) {
         const body = {
             model: options.model || this.textModel,
@@ -57,12 +68,15 @@ class MinimaxAPI {
 
         let response;
         try {
-            response = await fetch(`${this.proxyUrl}/api/chatcompletion`, {
+            response = await this._fetchWithTimeout(`${this.proxyUrl}/api/chatcompletion`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
         } catch (fetchError) {
+            if (fetchError && fetchError.name === 'AbortError') {
+                throw new Error('请求超时，请稍后重试');
+            }
             throw new Error('无法连接到服务器，请确保server.js正在运行');
         }
 
@@ -106,12 +120,15 @@ class MinimaxAPI {
 
         let response;
         try {
-            response = await fetch(`${this.proxyUrl}/api/understand_image`, {
+            response = await this._fetchWithTimeout(`${this.proxyUrl}/api/understand_image`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image_base64: imageUrl, prompt: prompt })
             });
         } catch (fetchError) {
+            if (fetchError && fetchError.name === 'AbortError') {
+                throw new Error('请求超时，请稍后重试');
+            }
             throw new Error('无法连接到服务器，请确保server.js正在运行');
         }
 
@@ -261,12 +278,15 @@ class MinimaxAPI {
 
         let response;
         try {
-            response = await fetch(`${this.proxyUrl}/api/image_generation`, {
+            response = await this._fetchWithTimeout(`${this.proxyUrl}/api/image_generation`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
         } catch (e) {
+            if (e && e.name === 'AbortError') {
+                throw new Error('请求超时，请稍后重试');
+            }
             throw new Error('图片生成网络请求失败');
         }
 
@@ -354,12 +374,15 @@ class MinimaxAPI {
 
         let response;
         try {
-            response = await fetch(`${this.proxyUrl}/api/tts`, {
+            response = await this._fetchWithTimeout(`${this.proxyUrl}/api/tts`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
         } catch (e) {
+            if (e && e.name === 'AbortError') {
+                throw new Error('请求超时，请稍后重试');
+            }
             throw new Error('语音合成网络请求失败');
         }
 
