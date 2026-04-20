@@ -9,6 +9,7 @@ class App {
         this.historyManager = new HistoryManager();
         this.inputManager.init();
         this.inputManager.onImageReady = (base64) => this._handleImageSelected(base64);
+        this._setupViewportSizing();
         this._isRecording = false;
         this._recording = null;
         this._wavBlob = null;
@@ -31,6 +32,44 @@ class App {
         this._dialogueIndex = 0;
         this._sceneActive = false;
         this._initEventListeners();
+    }
+
+    _setupViewportSizing() {
+        const update = () => this._updateViewportSizing();
+        update();
+        window.addEventListener('resize', update);
+        window.addEventListener('orientationchange', update);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', update);
+            window.visualViewport.addEventListener('scroll', update);
+        }
+        setTimeout(update, 0);
+        setTimeout(update, 200);
+    }
+
+    _updateViewportSizing() {
+        const root = document.documentElement;
+        const vv = window.visualViewport;
+        const height = vv ? vv.height : window.innerHeight;
+        root.style.setProperty('--app-height', `${Math.round(height)}px`);
+
+        const header = document.getElementById('app-header');
+        const stepIndicator = document.getElementById('step-indicator');
+        const headerH = header && !header.classList.contains('hidden') ? header.offsetHeight : 0;
+        const stepH = stepIndicator && !stepIndicator.classList.contains('hidden') ? stepIndicator.offsetHeight : 0;
+        root.style.setProperty('--header-h', `${headerH}px`);
+        root.style.setProperty('--step-h', `${stepH}px`);
+    }
+
+    _logCameraButtonVisibility() {
+        const btn = document.getElementById('btn-capture');
+        if (!btn) return;
+        const vv = window.visualViewport;
+        const vh = vv ? vv.height : window.innerHeight;
+        const rect = btn.getBoundingClientRect();
+        const overflow = Math.max(0, rect.bottom - vh);
+        const ratio = rect.height > 0 ? overflow / rect.height : 0;
+        console.log('[CameraLayout] viewportHeight=', Math.round(vh), 'btnBottom=', Math.round(rect.bottom), 'overflowPx=', Math.round(overflow), 'overflowRatio=', ratio.toFixed(2));
     }
 
     async _ensureXunfei() {
@@ -172,6 +211,8 @@ class App {
 
     _showCamera() {
         this._showPage('camera');
+        this._updateViewportSizing();
+        setTimeout(() => this._logCameraButtonVisibility(), 200);
         this.inputManager.startCamera();
     }
 
@@ -890,6 +931,8 @@ class App {
         if (stepIndicator) stepIndicator.classList.toggle('hidden', isHome || isHistory);
         if (btnBack) btnBack.classList.toggle('hidden', isHome);
         if (btnHome) btnHome.classList.toggle('hidden', isHome);
+        this._updateViewportSizing();
+        setTimeout(() => this._updateViewportSizing(), 0);
     }
 
     _updateStepIndicator(step) {

@@ -21,6 +21,9 @@
     --radius-sm: 8px;
     --radius-lg: 16px;
     --transition: all 0.3s ease;
+    --app-height: 100vh;
+    --header-h: 56px;
+    --step-h: 0px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -36,7 +39,7 @@ body {
 #app {
     max-width: 480px;
     margin: 0 auto;
-    min-height: 100vh;
+    min-height: var(--app-height);
     background: var(--white);
     position: relative;
     overflow-x: hidden;
@@ -48,7 +51,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
     background: var(--white);
     border-bottom: 1px solid var(--border);
     position: sticky;
@@ -127,7 +130,7 @@ body {
 
 .page {
     display: none;
-    min-height: calc(100vh - 56px);
+    min-height: calc(var(--app-height) - var(--header-h) - var(--step-h));
     animation: fadeIn 0.3s ease;
 }
 
@@ -253,7 +256,7 @@ body {
 .camera-container {
     position: relative;
     width: 100%;
-    height: calc(100vh - 56px);
+    height: calc(var(--app-height) - var(--header-h) - var(--step-h));
     background: #000;
     overflow: hidden;
 }
@@ -285,7 +288,7 @@ body {
 
 .camera-controls {
     position: absolute;
-    bottom: 40px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     left: 0;
     width: 100%;
     display: flex;
@@ -323,7 +326,7 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: calc(100vh - 56px);
+    min-height: calc(var(--app-height) - var(--header-h) - var(--step-h));
     padding: 40px 20px;
     gap: 20px;
 }
@@ -1367,7 +1370,7 @@ body {
 
 .history-content {
     padding: 20px;
-    min-height: calc(100vh - 56px);
+    min-height: calc(var(--app-height) - var(--header-h) - var(--step-h));
 }
 
 .history-header-bar {
