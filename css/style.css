@@ -24,6 +24,8 @@
     --app-height: 100vh;
     --header-h: 56px;
     --step-h: 0px;
+    --footer-h: 0px;
+    --color-text-secondary: var(--text-secondary);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -46,6 +48,21 @@ body {
 }
 
 .hidden { display: none !important; }
+
+#app-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    font-size: 12px;
+    text-align: center;
+    color: var(--color-text-secondary);
+    opacity: 0.45;
+    background: var(--white);
+    border-top: 1px solid rgba(0,0,0,0.04);
+    z-index: 90;
+}
 
 #app-header {
     display: flex;
@@ -130,7 +147,7 @@ body {
 
 .page {
     display: none;
-    min-height: calc(var(--app-height) - var(--header-h) - var(--step-h));
+    min-height: calc(var(--app-height) - var(--header-h) - var(--step-h) - var(--footer-h));
     animation: fadeIn 0.3s ease;
 }
 
@@ -152,6 +169,33 @@ body {
 }
 
 .hero-icon { font-size: 56px; margin-bottom: 12px; }
+
+.home-camera-icon {
+    width: 120px;
+    height: 120px;
+    border: none;
+    border-radius: 24px;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+    margin-bottom: 12px;
+}
+
+.home-camera-icon:active { transform: scale(0.95); }
+
+.home-camera-icon:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 4px;
+}
+
+.home-camera-icon .brand-logo {
+    width: 64px;
+    height: 64px;
+}
 
 .home-hero h2 {
     font-size: 22px;
@@ -256,7 +300,7 @@ body {
 .camera-container {
     position: relative;
     width: 100%;
-    height: calc(var(--app-height) - var(--header-h) - var(--step-h));
+    height: calc(var(--app-height) - var(--header-h) - var(--step-h) - var(--footer-h));
     background: #000;
     overflow: hidden;
 }
@@ -326,9 +370,59 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: calc(var(--app-height) - var(--header-h) - var(--step-h));
-    padding: 40px 20px;
+    min-height: calc(var(--app-height) - var(--header-h) - var(--step-h) - var(--footer-h));
+    padding: 32px 20px;
     gap: 20px;
+}
+
+#page-loading {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.28);
+    z-index: 1500;
+}
+
+#page-loading .loading-content {
+    min-height: var(--app-height);
+}
+
+.loading-logo {
+    width: 64px;
+    height: 64px;
+    opacity: 0.4;
+    animation: fadeBreath 2.4s ease-in-out infinite;
+    will-change: opacity;
+}
+
+@keyframes fadeBreath {
+    0% { opacity: 0.4; }
+    50% { opacity: 1; }
+    100% { opacity: 0.4; }
+}
+
+.loading-text {
+    max-width: 22em;
+    padding: 0 8px;
+    text-align: center;
+    font-size: 16px;
+    color: var(--text-secondary);
+    word-break: break-word;
+    line-break: strict;
+}
+
+.loading-slow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.loading-slow-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    opacity: 0.8;
+    text-align: center;
 }
 
 .loading-spinner {
@@ -343,8 +437,6 @@ body {
 .loading-spinner.small { width: 24px; height: 24px; border-width: 3px; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
-
-.loading-text { font-size: 16px; color: var(--text-secondary); text-align: center; }
 
 .progress-bar {
     width: 200px;
@@ -1370,7 +1462,7 @@ body {
 
 .history-content {
     padding: 20px;
-    min-height: calc(var(--app-height) - var(--header-h) - var(--step-h));
+    min-height: calc(var(--app-height) - var(--header-h) - var(--step-h) - var(--footer-h));
 }
 
 .history-header-bar {

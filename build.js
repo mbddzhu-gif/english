@@ -57,6 +57,8 @@ async function main() {
 
     const cssDir = path.join(root, 'css');
     const jsDir = path.join(root, 'js');
+    const constantsDir = path.join(root, 'constants');
+    const assetsDir = path.join(root, 'assets');
 
     const cssFiles = await listFiles(cssDir, '.css');
     for (const file of cssFiles) {
@@ -69,6 +71,22 @@ async function main() {
         const rel = path.relative(root, file);
         await minifyJs(file, path.join(dist, rel));
     }
+
+    try {
+        const constantFiles = await listFiles(constantsDir, '.js');
+        for (const file of constantFiles) {
+            const rel = path.relative(root, file);
+            await minifyJs(file, path.join(dist, rel));
+        }
+    } catch (e) {}
+
+    try {
+        const svgFiles = await listFiles(assetsDir, '.svg');
+        for (const file of svgFiles) {
+            const rel = path.relative(root, file);
+            await copyFile(file, path.join(dist, rel));
+        }
+    } catch (e) {}
 }
 
 main().catch((e) => {

@@ -6,6 +6,8 @@ class App {
         this.sceneManager = new SceneManager(this.api);
         this.xunfei = null;
         this._xunfeiInitPromise = null;
+        this._loadingTipPicker = (window.LoadingTips && typeof window.LoadingTips.createPicker === 'function') ? window.LoadingTips.createPicker() : null;
+        this._loadingSlowTimer = null;
         this.historyManager = new HistoryManager();
         this.inputManager.init();
         this.inputManager.onImageReady = (base64) => this._handleImageSelected(base64);
@@ -55,10 +57,13 @@ class App {
 
         const header = document.getElementById('app-header');
         const stepIndicator = document.getElementById('step-indicator');
+        const footer = document.getElementById('app-footer');
         const headerH = header && !header.classList.contains('hidden') ? header.offsetHeight : 0;
         const stepH = stepIndicator && !stepIndicator.classList.contains('hidden') ? stepIndicator.offsetHeight : 0;
+        const footerH = footer ? footer.offsetHeight : 0;
         root.style.setProperty('--header-h', `${headerH}px`);
         root.style.setProperty('--step-h', `${stepH}px`);
+        root.style.setProperty('--footer-h', `${footerH}px`);
     }
 
     _logCameraButtonVisibility() {
@@ -91,7 +96,11 @@ class App {
 
         el('btn-upload').addEventListener('click', () => this.inputManager.selectImage());
         el('btn-camera').addEventListener('click', () => this._showCamera());
+        const iconBtn = document.querySelector('.home-camera-icon');
+        if (iconBtn) iconBtn.addEventListener('click', () => this._showCamera());
         el('btn-capture').addEventListener('click', () => this._capturePhoto());
+        const btnRefresh = el('btn-refresh');
+        if (btnRefresh) btnRefresh.addEventListener('click', () => window.location.reload());
         el('btn-start-practice').addEventListener('click', () => this._startPractice());
         el('btn-record').addEventListener('click', () => this._startRecording());
         el('btn-play-recording').addEventListener('click', () => this._playRecording());
@@ -898,8 +907,29 @@ class App {
     }
 
     _showLoading(text) {
-        document.getElementById('loading-text').textContent = text || '加载中...';
-        this._showPage('loading');
+        const tipEl = document.getElementById('loading-text');
+        const slowEl = document.getElementById('loading-slow');
+        const loadingPage = document.getElementById('page-loading');
+
+        let tip = (text && String(text).trim().length > 0) ? String(text) : '加载中...';
+        if (this._loadingTipPicker) {
+            const picked = this._loadingTipPicker.next();
+            if (picked && picked.text) tip = picked.text;
+        }
+
+        if (tipEl) tipEl.textContent = tip;
+        if (slowEl) slowEl.classList.add('hidden');
+        if (this._loadingSlowTimer) clearTimeout(this._loadingSlowTimer);
+        this._loadingSlowTimer = setTimeout(() => {
+            const page = document.getElementById('page-loading');
+            if (page && page.style.display !== 'none') {
+                const slow = document.getElementById('loading-slow');
+                if (slow) slow.classList.remove('hidden');
+            }
+        }, 15000);
+
+        if (loadingPage) loadingPage.style.display = 'block';
+        this._updateViewportSizing();
     }
 
     _showPage(pageId) {
@@ -931,6 +961,8 @@ class App {
         if (stepIndicator) stepIndicator.classList.toggle('hidden', isHome || isHistory);
         if (btnBack) btnBack.classList.toggle('hidden', isHome);
         if (btnHome) btnHome.classList.toggle('hidden', isHome);
+        const loadingPage = document.getElementById('page-loading');
+        if (loadingPage) loadingPage.style.display = 'none';
         this._updateViewportSizing();
         setTimeout(() => this._updateViewportSizing(), 0);
     }
