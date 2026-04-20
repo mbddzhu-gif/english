@@ -87,6 +87,14 @@ async function main() {
             await copyFile(file, path.join(dist, rel));
         }
     } catch (e) {}
+
+    try {
+        const pngFiles = await listFiles(assetsDir, '.png');
+        for (const file of pngFiles) {
+            const rel = path.relative(root, file);
+            await copyFile(file, path.join(dist, rel));
+        }
+    } catch (e) {}
 }
 
 main().catch((e) => {
