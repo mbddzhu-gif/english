@@ -12,6 +12,14 @@ class SpeechManager {
         this._fallbackAttempted = false;
     }
 
+    _getSpeechSynthesis() {
+        return (typeof window !== 'undefined' && window.speechSynthesis) ? window.speechSynthesis : null;
+    }
+
+    _canUseWebSpeech() {
+        return !!(this._getSpeechSynthesis() && window.SpeechSynthesisUtterance);
+    }
+
     async playPhrase(text, speed = 1.0) {
         this.stop();
         const playbackId = this._playbackId;
@@ -157,22 +165,23 @@ class SpeechManager {
 
     _playWithWebSpeech(text, speed) {
         return new Promise((resolve, reject) => {
-            if (!('speechSynthesis' in window)) {
+            const synth = this._getSpeechSynthesis();
+            if (!synth || !window.SpeechSynthesisUtterance) {
                 reject(new Error('浏览器不支持语音合成'));
                 return;
             }
 
-            const voices = speechSynthesis.getVoices();
+            const voices = synth.getVoices();
             if (voices.length === 0) {
                 console.log('[Speech] Waiting for speech synthesis voices to load...');
                 const onVoicesLoaded = () => {
-                    speechSynthesis.onvoiceschanged = null;
+                    synth.onvoiceschanged = null;
                     this._doPlayWithWebSpeech(text, speed, resolve, reject);
                 };
-                speechSynthesis.onvoiceschanged = onVoicesLoaded;
+                synth.onvoiceschanged = onVoicesLoaded;
                 setTimeout(() => {
-                    if (speechSynthesis.getVoices().length === 0) {
-                        speechSynthesis.onvoiceschanged = null;
+                    if (synth.getVoices().length === 0) {
+                        synth.onvoiceschanged = null;
                         this._doPlayWithWebSpeech(text, speed, resolve, reject);
                     }
                 }, 1000);
@@ -183,12 +192,18 @@ class SpeechManager {
     }
 
     _doPlayWithWebSpeech(text, speed, resolve, reject) {
-        const utterance = new SpeechSynthesisUtterance(text);
+        const synth = this._getSpeechSynthesis();
+        if (!synth || !window.SpeechSynthesisUtterance) {
+            reject(new Error('浏览器不支持语音合成'));
+            return;
+        }
+
+        const utterance = new window.SpeechSynthesisUtterance(text);
         utterance.lang = 'en-US';
         utterance.rate = speed;
         utterance.pitch = 1;
 
-        const voices = speechSynthesis.getVoices();
+        const voices = synth.getVoices();
         const enVoice = voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang.startsWith('en'));
         if (enVoice) {
             utterance.voice = enVoice;
@@ -212,7 +227,7 @@ class SpeechManager {
 
         try {
             console.log('[Speech] Speaking with WebSpeech:', text);
-            speechSynthesis.speak(utterance);
+            synth.speak(utterance);
             this.currentAudio = { _isWebSpeech: true, utterance };
         } catch (e) {
             this.isSpeaking = false;
@@ -248,9 +263,10 @@ class SpeechManager {
     }
 
     stop() {
+        const synth = this._getSpeechSynthesis();
         if (this.currentAudio) {
             if (this.currentAudio._isWebSpeech) {
-                speechSynthesis.cancel();
+                if (synth) synth.cancel();
             } else {
                 this.currentAudio.pause();
                 this.currentAudio.currentTime = 0;
@@ -262,7 +278,7 @@ class SpeechManager {
             }
             this.currentAudio = null;
         }
-        speechSynthesis.cancel();
+        if (synth) synth.cancel();
         this.isSpeaking = false;
         this.currentWordIndex = -1;
         this._playbackId++;
