@@ -27,7 +27,12 @@ class SpeechManager {
         } catch (e) {
             console.warn('[Speech] Xunfei TTS failed, falling back to WebSpeech:', e.message);
             if (playbackId !== this._playbackId) return;
-            return this._playWithWebSpeech(text, speed);
+            try {
+                return await this._playWithWebSpeech(text, speed);
+            } catch (e2) {
+                console.error('[Speech] All TTS methods failed:', e2.message);
+                throw new Error('语音播放失败：' + e2.message);
+            }
         }
     }
 
@@ -45,7 +50,12 @@ class SpeechManager {
         } catch (e) {
             console.warn('[Speech] Xunfei TTS word failed, falling back to WebSpeech:', e.message);
             if (playbackId !== this._playbackId) return;
-            return this._playWithWebSpeech(word, 0.8);
+            try {
+                return await this._playWithWebSpeech(word, 0.8);
+            } catch (e2) {
+                console.error('[Speech] All TTS methods failed:', e2.message);
+                throw new Error('语音播放失败：' + e2.message);
+            }
         }
     }
 
@@ -172,7 +182,9 @@ class SpeechManager {
                 settled = true;
                 this.isSpeaking = false;
                 console.error('[Speech] Audio play error:', e);
-                this._playWithWebSpeech(text, this.currentSpeed).then(resolve).catch(reject);
+                this._playWithWebSpeech(text, this.currentSpeed)
+                    .then(resolve)
+                    .catch(() => reject(new Error('音频播放失败')));
             };
 
             this.currentAudio.onplay = () => {
@@ -184,7 +196,9 @@ class SpeechManager {
                 if (settled) return;
                 settled = true;
                 console.error('[Speech] play() rejected:', e.message);
-                this._playWithWebSpeech(text, this.currentSpeed).then(resolve).catch(reject);
+                this._playWithWebSpeech(text, this.currentSpeed)
+                    .then(resolve)
+                    .catch(() => reject(new Error('音频播放被阻止')));
             });
         });
     }
@@ -282,7 +296,7 @@ class SpeechManager {
     stop() {
         if (this.currentAudio) {
             if (this.currentAudio._isWebSpeech) {
-                speechSynthesis.cancel();
+                if (window.speechSynthesis) speechSynthesis.cancel();
             } else {
                 this.currentAudio.pause();
                 this.currentAudio.currentTime = 0;
@@ -294,7 +308,7 @@ class SpeechManager {
             }
             this.currentAudio = null;
         }
-        speechSynthesis.cancel();
+        if (window.speechSynthesis) speechSynthesis.cancel();
         this.isSpeaking = false;
         this.currentWordIndex = -1;
         this._playbackId++;
