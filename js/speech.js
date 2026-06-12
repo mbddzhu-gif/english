@@ -67,18 +67,19 @@ class SpeechManager {
                 let audioChunks = [];
 
                 ws.onopen = () => {
-                    const speedVal = Math.round((speed || 1.0) * 50);
+                    const speedVal = Math.min(100, Math.max(0, Math.round((speed || 1.0) * 50)));
                     const request = {
                         common: { app_id: authData.appId },
                         business: {
                             aue: 'lame',
                             sfl: 1,
-                            auf: 'audio/L16;rate=16000',
+                            auf: 'audio/L16;rate=24000',
                             vcn: authData.vcn || 'x4_enus_luna_assist',
                             tte: 'UTF8',
                             speed: speedVal,
                             volume: 50,
-                            pitch: 50
+                            pitch: 50,
+                            bgs: 0
                         },
                         data: {
                             status: 2,

@@ -34,9 +34,10 @@ body {
 }
 
 #app {
-    max-width: 480px;
+    max-width: 100%;
     margin: 0 auto;
     min-height: 100vh;
+    min-height: 100dvh;
     background: var(--white);
     position: relative;
     overflow-x: hidden;
@@ -127,7 +128,7 @@ body {
 
 .page {
     display: none;
-    min-height: calc(100vh - 56px);
+    min-height: calc(100dvh - 56px);
     animation: fadeIn 0.3s ease;
 }
 
@@ -253,7 +254,7 @@ body {
 .camera-container {
     position: relative;
     width: 100%;
-    height: calc(100vh - 56px);
+    height: 100dvh;
     background: #000;
     overflow: hidden;
 }
@@ -285,7 +286,8 @@ body {
 
 .camera-controls {
     position: absolute;
-    bottom: 40px;
+    bottom: 24px;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
     left: 0;
     width: 100%;
     display: flex;
@@ -323,7 +325,7 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: calc(100vh - 56px);
+    min-height: calc(100dvh - 56px);
     padding: 40px 20px;
     gap: 20px;
 }
@@ -1367,7 +1369,7 @@ body {
 
 .history-content {
     padding: 20px;
-    min-height: calc(100vh - 56px);
+    min-height: calc(100dvh - 56px);
 }
 
 .history-header-bar {
@@ -1528,4 +1530,30 @@ body {
 .history-detail-line .speaker-b {
     color: var(--success);
     font-weight: 600;
+}
+
+/* ============ 移动端优化 ============ */
+@supports (height: 100dvh) {
+    #app { min-height: 100dvh; }
+}
+
+body {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* 大屏居中显示 */
+@media (min-width: 768px) {
+    #app {
+        max-width: 480px;
+        margin: 0 auto;
+        box-shadow: 0 0 30px rgba(0,0,0,0.08);
+    }
+}
+
+/* 移动端底部操作区域安全间距 */
+.result-actions,
+.practice-actions,
+.scene-actions,
+.scene-practice {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
