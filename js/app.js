@@ -520,7 +520,7 @@ class App {
             this._showLoading('正在生成场景图片...');
             const config = window.APP_CONFIG || {};
             const proxyUrl = config.proxyUrl || '';
-            const imgPrompt = `An immersive scene illustration depicting ${sceneDescription || this._currentObject}, educational illustration style, warm lighting, child-friendly, vibrant colors`;
+            const imgPrompt = `Flat cartoon illustration, a scene about ${sceneDescription || this._currentObject}, bright warm colors, simple clean background, child-friendly educational style, no text, no people faces, safe for children, G-rated content`;
             const imgResponse = await fetch(`${proxyUrl}/api/image_generation`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
