@@ -1,9 +1,3 @@
 {
-  "rewrites": [
-    { "source": "/api/auth", "destination": "/api/auth" },
-    { "source": "/api/admin", "destination": "/api/admin" },
-    { "source": "/api/xunfei", "destination": "/api/xunfei" },
-    { "source": "/api/usage", "destination": "/api/usage" },
-    { "source": "/api/:path*", "destination": "/api/:path*" }
-  ]
+  "cleanUrls": true
 }
