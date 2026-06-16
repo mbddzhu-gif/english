@@ -601,11 +601,25 @@ class App {
                 headers: { 'Content-Type': 'application/json', ...window.authManager.getAuthHeaders() },
                 body: JSON.stringify({ prompt: imgPrompt, size: '1024x768' })
             });
+
+            if (!imgResponse.ok) {
+                let errorDetail = `HTTP ${imgResponse.status}`;
+                try {
+                    const errData = await imgResponse.json();
+                    errorDetail = errData.error || errorDetail;
+                } catch (e) {}
+                console.error(`[App] Image generation failed: ${errorDetail}`);
+                throw new Error(`图片生成失败: ${errorDetail}`);
+            }
+
             const imgData = await imgResponse.json();
+            if (imgData.error) {
+                throw new Error(imgData.error);
+            }
             const imageUrl = imgData.url;
 
             if (!imageUrl) {
-                throw new Error('图片生成失败');
+                throw new Error('图片生成失败：未返回图片URL');
             }
 
             this._currentImageUrl = imageUrl;

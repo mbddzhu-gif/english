@@ -11,5 +11,13 @@
     { "src": "/js/(.*)", "dest": "/js/$1" },
     { "src": "/(.*\\.html)", "dest": "/$1" },
     { "src": "/(.*)", "dest": "/index.html" }
-  ]
+  ],
+  "functions": {
+    "api/image_generation/index.js": {
+      "maxDuration": 60
+    },
+    "api/understand_image/index.js": {
+      "maxDuration": 30
+    }
+  }
 }

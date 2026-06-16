@@ -37,6 +37,25 @@ class Utils {
         } catch (e) {}
 
         console.error(`[ErrorLog][${step}]`, entry.errorMessage, extra);
+
+        // 上报错误到后端（静默，不阻塞）
+        try {
+            const config = window.APP_CONFIG || {};
+            const proxyUrl = config.proxyUrl || '';
+            fetch(`${proxyUrl}/api/error_log`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    step,
+                    errorMessage: entry.errorMessage,
+                    errorType: entry.errorType,
+                    stack: entry.stack,
+                    userAgent: entry.userAgent,
+                    url: entry.url,
+                    extra
+                })
+            }).catch(() => {}); // 静默失败
+        } catch (e) {}
     }
 
     static getErrorLogs() {

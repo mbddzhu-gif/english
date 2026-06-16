@@ -588,6 +588,11 @@ const server = http.createServer((req, res) => {
                     else if (action === 'stats') result = await handleAdminStats(req);
                     else result = { status: 400, data: { error: 'Unknown admin action' } };
                     break;
+                case '/api/error_log':
+                    // 前端错误日志收集，直接打印到控制台
+                    console.error(`[ClientError] ${JSON.stringify(parsed)}`);
+                    result = { status: 200, data: { ok: true } };
+                    break;
                 default:
                     result = { status: 404, data: { error: 'Unknown endpoint: ' + req.url } };
             }
