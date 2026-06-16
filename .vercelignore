@@ -4,4 +4,8 @@ node_modules
 .env
 .env.*.local
 *.log
+local-server.js
+db.js
+db/
+test-prod.js
 
