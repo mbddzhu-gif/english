@@ -590,37 +590,10 @@ class App {
             }
 
             this._showLoading('正在生成场景图片...');
-            const config = window.APP_CONFIG || {};
-            const proxyUrl = config.proxyUrl || '';
 
             // 使用 AI 生成的场景描述，比泛泛的提示词更精准
             const sceneDesc = dialogueResult.scene_description || `a scene with ${this._currentObject}`;
-            const imgPrompt = `${sceneDesc}, no text, no letters, no words, no writing, no watermarks, safe for children`;
-            const imgResponse = await fetch(`${proxyUrl}/api/image_generation`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...window.authManager.getAuthHeaders() },
-                body: JSON.stringify({ prompt: imgPrompt, size: '1024x768' })
-            });
-
-            if (!imgResponse.ok) {
-                let errorDetail = `HTTP ${imgResponse.status}`;
-                try {
-                    const errData = await imgResponse.json();
-                    errorDetail = errData.error || errorDetail;
-                } catch (e) {}
-                console.error(`[App] Image generation failed: ${errorDetail}`);
-                throw new Error(`图片生成失败: ${errorDetail}`);
-            }
-
-            const imgData = await imgResponse.json();
-            if (imgData.error) {
-                throw new Error(imgData.error);
-            }
-            const imageUrl = imgData.url;
-
-            if (!imageUrl) {
-                throw new Error('图片生成失败：未返回图片URL');
-            }
+            const imageUrl = await this.sceneManager.generateScene(this._currentObject, 'other', sceneDesc);
 
             this._currentImageUrl = imageUrl;
             this._dialogueIndex = 0;

@@ -263,7 +263,32 @@ async function handleChatCompletion(body) {
 
 // ============ 图片生成 - ModelScope Z-Image-Turbo（异步模式） ============
 async function handleImageGeneration(body) {
-    const { prompt, size } = body;
+    const { prompt, size, task_id } = body;
+
+    // 模式2: 查询任务结果
+    if (task_id) {
+        try {
+            const pollResult = await httpsGet(
+                MS_API_HOST, `/v1/tasks/${task_id}`, MS_API_KEY, 15000,
+                { 'X-ModelScope-Task-Type': 'image_generation' }
+            );
+            const taskStatus = pollResult.data.task_status;
+            if (taskStatus === 'SUCCEED') {
+                const imageUrl = pollResult.data.output_images && pollResult.data.output_images[0];
+                if (imageUrl) return { status: 200, data: { status: 'succeeded', url: imageUrl, model: MS_MODEL } };
+                return { status: 200, data: { status: 'succeeded', error: '未返回图片URL' } };
+            }
+            if (taskStatus === 'FAILED') {
+                const errorMsg = (pollResult.data.errors && pollResult.data.errors.message) || '未知错误';
+                return { status: 200, data: { status: 'failed', error: errorMsg } };
+            }
+            return { status: 200, data: { status: taskStatus || 'running' } };
+        } catch (e) {
+            return { status: 200, data: { status: 'error', error: e.message } };
+        }
+    }
+
+    // 模式1: 提交生成任务
     if (!prompt) {
         return { status: 400, data: { error: 'Missing prompt' } };
     }
@@ -276,80 +301,34 @@ async function handleImageGeneration(body) {
         guidance: 1.5
     };
 
-    const maxRetries = 3;
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            // 步骤1: 提交异步任务
-            const submitResult = await httpsRequest(
-                MS_API_HOST, '/v1/images/generations', imageBody, MS_API_KEY, 60000,
-                { 'X-ModelScope-Async-Mode': 'true' }
-            );
+    try {
+        const submitResult = await httpsRequest(
+            MS_API_HOST, '/v1/images/generations', imageBody, MS_API_KEY, 30000,
+            { 'X-ModelScope-Async-Mode': 'true' }
+        );
 
-            const taskId = submitResult.data.task_id;
-            if (!taskId) {
-                const errorMsg = submitResult.data.error || submitResult.data.message || JSON.stringify(submitResult.data);
-                console.log(`[Proxy] Z-Image submit failed: ${errorMsg}, attempt ${attempt + 1}/${maxRetries}`);
-                if (attempt < maxRetries - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
-                    continue;
-                }
-                return { status: 500, data: { error: `图片生成提交失败: ${errorMsg}` } };
-            }
-
-            console.log(`[Proxy] Z-Image task submitted: ${taskId}`);
-
-            // 步骤2: 轮询任务结果
-            const pollTimeout = 120000; // 最多等2分钟
-            const pollInterval = 4000;  // 每4秒轮询一次
-            const startTime = Date.now();
-
-            while (Date.now() - startTime < pollTimeout) {
-                await new Promise(resolve => setTimeout(resolve, pollInterval));
-
-                const pollResult = await httpsGet(
-                    MS_API_HOST, `/v1/tasks/${taskId}`, MS_API_KEY, 30000,
-                    { 'X-ModelScope-Task-Type': 'image_generation' }
-                );
-
-                const taskStatus = pollResult.data.task_status;
-
-                if (taskStatus === 'SUCCEED') {
-                    const imageUrl = pollResult.data.output_images && pollResult.data.output_images[0];
-                    if (imageUrl) {
-                        console.log('[Proxy] Z-Image generation succeeded');
-                        return { status: 200, data: { url: imageUrl, model: MS_MODEL } };
-                    }
-                    return { status: 500, data: { error: '图片生成成功但未返回图片URL' } };
-                }
-
-                if (taskStatus === 'FAILED') {
-                    const errorMsg = (pollResult.data.errors && pollResult.data.errors.message) || '未知错误';
-                    console.log(`[Proxy] Z-Image task failed: ${errorMsg}`);
-                    if (attempt < maxRetries - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
-                        break; // 跳出轮询，进入下一次重试
-                    }
-                    return { status: 500, data: { error: `图片生成失败: ${errorMsg}` } };
-                }
-
-                // RUNNING 或其他状态，继续轮询
-                console.log(`[Proxy] Z-Image task status: ${taskStatus}`);
-            }
-
-            // 轮询超时
-            if (attempt < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
-                continue;
-            }
-            return { status: 504, data: { error: '图片生成超时，请稍后重试' } };
-        } catch (e) {
-            console.log(`[Proxy] Z-Image exception: ${e.message}, attempt ${attempt + 1}/${maxRetries}`);
-            if (attempt < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
-                continue;
-            }
-            return { status: 503, data: { error: '图片生成服务暂时不可用，请稍后重试', retryable: true } };
+        const taskId = submitResult.data.task_id;
+        if (!taskId) {
+            const errorMsg = submitResult.data.error?.message || submitResult.data.error || submitResult.data.message || JSON.stringify(submitResult.data);
+            return { status: 502, data: { error: `提交失败: ${errorMsg}` } };
         }
+
+        // 检查是否直接完成
+        if (submitResult.data.task_status === 'SUCCEED') {
+            const pollResult = await httpsGet(
+                MS_API_HOST, `/v1/tasks/${taskId}`, MS_API_KEY, 15000,
+                { 'X-ModelScope-Task-Type': 'image_generation' }
+            );
+            if (pollResult.data.task_status === 'SUCCEED' && pollResult.data.output_images && pollResult.data.output_images[0]) {
+                return { status: 200, data: { status: 'succeeded', url: pollResult.data.output_images[0], model: MS_MODEL, task_id: taskId } };
+            }
+        }
+
+        // 返回task_id，让前端轮询
+        return { status: 200, data: { status: 'submitted', task_id: taskId } };
+    } catch (e) {
+        console.log(`[Proxy] Z-Image submit error: ${e.message}`);
+        return { status: 502, data: { error: `网络错误: ${e.message}` } };
     }
 }
 

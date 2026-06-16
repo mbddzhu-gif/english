@@ -34,15 +34,75 @@ class SceneManager {
 
         const prompt = this._buildImagePrompt(subject, category, sceneDescription);
 
-        const response = await fetch(`${proxyUrl}/api/image_generation`, {
+        // 步骤1: 提交图片生成任务
+        const submitResponse = await fetch(`${proxyUrl}/api/image_generation`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...window.authManager.getAuthHeaders() },
             body: JSON.stringify({ prompt, size: '1024x768' })
         });
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
-        this.sceneImageUrl = data.url;
-        return data.url;
+
+        if (!submitResponse.ok) {
+            let errorDetail = `HTTP ${submitResponse.status}`;
+            try {
+                const errData = await submitResponse.json();
+                errorDetail = errData.error || errorDetail;
+            } catch (e) {}
+            throw new Error(`图片生成失败: ${errorDetail}`);
+        }
+
+        const submitData = await submitResponse.json();
+        if (submitData.error) {
+            throw new Error(submitData.error);
+        }
+
+        // 如果直接返回了结果
+        if (submitData.status === 'succeeded' && submitData.url) {
+            this.sceneImageUrl = submitData.url;
+            return submitData.url;
+        }
+
+        // 如果返回了task_id，前端轮询
+        const taskId = submitData.task_id;
+        if (!taskId) {
+            throw new Error('图片生成未返回任务ID');
+        }
+
+        // 步骤2: 前端轮询任务结果
+        const maxPolls = 30; // 最多轮询30次
+        const pollInterval = 3000; // 3秒一次
+        for (let i = 0; i < maxPolls; i++) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+            const pollResponse = await fetch(`${proxyUrl}/api/image_generation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...window.authManager.getAuthHeaders() },
+                body: JSON.stringify({ task_id: taskId })
+            });
+
+            if (!pollResponse.ok) {
+                console.warn(`[Scene] Poll HTTP ${pollResponse.status}, continuing...`);
+                continue;
+            }
+
+            const pollData = await pollResponse.json();
+
+            if (pollData.status === 'succeeded' && pollData.url) {
+                this.sceneImageUrl = pollData.url;
+                return pollData.url;
+            }
+
+            if (pollData.status === 'failed') {
+                throw new Error(`图片生成失败: ${pollData.error || '未知错误'}`);
+            }
+
+            if (pollData.status === 'error') {
+                throw new Error(`图片生成查询错误: ${pollData.error || '未知错误'}`);
+            }
+
+            // status === 'running' or 'RUNNING', 继续轮询
+        }
+
+        throw new Error('图片生成超时，请稍后重试');
     }
 
     _buildImagePrompt(subject, category, sceneDescription) {
