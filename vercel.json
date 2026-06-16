@@ -1,3 +1,8 @@
 {
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/api/auth", "destination": "/api/auth" },
+    { "source": "/api/admin", "destination": "/api/admin" },
+    { "source": "/api/xunfei", "destination": "/api/xunfei" }
+  ]
 }

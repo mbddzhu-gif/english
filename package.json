@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "node server.js",
-    "start": "node server.js",
     "build": "echo 'No build step required'"
   },
   "dependencies": {
