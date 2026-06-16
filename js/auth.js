@@ -15,7 +15,7 @@ class AuthManager {
     }
 
     async login(phone, password) {
-        const response = await fetch(`${this.proxyUrl}/api/auth/login`, {
+        const response = await fetch(`${this.proxyUrl}/api/auth?action=login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone, password })
@@ -30,7 +30,7 @@ class AuthManager {
     }
 
     async register(phone, nickname, password) {
-        const response = await fetch(`${this.proxyUrl}/api/auth/register`, {
+        const response = await fetch(`${this.proxyUrl}/api/auth?action=register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone, nickname, password })

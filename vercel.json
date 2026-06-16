@@ -1,15 +1,9 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "**/*.html", "use": "@vercel/static" },
-    { "src": "css/**", "use": "@vercel/static" },
-    { "src": "js/**", "use": "@vercel/static" },
-    { "src": "api/**/*.js", "use": "@vercel/node" }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/css/(.*)", "dest": "/css/$1" },
-    { "src": "/js/(.*)", "dest": "/js/$1" },
-    { "src": "/(.*)", "dest": "/$1" }
+  "rewrites": [
+    { "source": "/api/auth", "destination": "/api/auth" },
+    { "source": "/api/admin", "destination": "/api/admin" },
+    { "source": "/api/xunfei", "destination": "/api/xunfei" },
+    { "source": "/api/usage", "destination": "/api/usage" },
+    { "source": "/api/:path*", "destination": "/api/:path*" }
   ]
 }

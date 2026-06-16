@@ -11,7 +11,7 @@ class XunfeiSpeech {
     async _getAuthUrl(type) {
         console.log('正在获取讯飞认证URL...');
         try {
-            const response = await fetch(`${this.proxyUrl}/api/xunfei/auth-${type}`);
+            const response = await fetch(`${this.proxyUrl}/api/xunfei?action=${type}`);
             if (!response.ok) {
                 throw new Error(`获取认证失败: ${response.status} ${response.statusText}`);
             }

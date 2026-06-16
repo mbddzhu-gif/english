@@ -256,7 +256,7 @@
 
         async function loadStats() {
             try {
-                const resp = await fetch(`${proxyUrl}/api/admin/stats`, { headers });
+                const resp = await fetch(`${proxyUrl}/api/admin?action=stats`, { headers });
                 if (!resp.ok) throw new Error('获取统计失败');
                 const data = await resp.json();
 
@@ -288,7 +288,7 @@
 
         async function loadUsers() {
             try {
-                const resp = await fetch(`${proxyUrl}/api/admin/users`, { headers });
+                const resp = await fetch(`${proxyUrl}/api/admin?action=users`, { headers });
                 if (!resp.ok) throw new Error('获取用户列表失败');
                 const data = await resp.json();
                 const users = data.users || [];

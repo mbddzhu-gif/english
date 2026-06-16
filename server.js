@@ -552,6 +552,8 @@ const server = http.createServer((req, res) => {
             const parsed = body ? JSON.parse(body) : {};
             let result;
             const urlPath = req.url.split('?')[0];
+            const urlParams = new URL(req.url, `http://localhost:${PORT}`).searchParams;
+            const action = urlParams.get('action');
 
             switch (urlPath) {
                 case '/api/understand_image':
@@ -563,35 +565,28 @@ const server = http.createServer((req, res) => {
                 case '/api/image_generation':
                     result = await handleImageGeneration(parsed);
                     break;
-                case '/api/xunfei/auth-ise':
-                    result = { status: 200, data: { url: generateXunfeiAuthUrl(XUNFEI.iseHost, XUNFEI.isePath, XUNFEI.apiSecret, XUNFEI.apiKey) } };
-                    break;
-                case '/api/xunfei/auth-iat':
-                    result = { status: 200, data: { url: generateXunfeiAuthUrl(XUNFEI.iatHost, XUNFEI.iatPath, XUNFEI.apiSecret, XUNFEI.apiKey) } };
-                    break;
-                case '/api/xunfei/auth-tts':
-                    result = { status: 200, data: { url: generateXunfeiAuthUrl(XUNFEI_TTS.host, XUNFEI_TTS.path, XUNFEI_TTS.apiSecret, XUNFEI_TTS.apiKey), appId: XUNFEI_TTS.appId, vcn: XUNFEI_TTS.vcn } };
+                case '/api/xunfei':
+                    if (action === 'ise') result = { status: 200, data: { url: generateXunfeiAuthUrl(XUNFEI.iseHost, XUNFEI.isePath, XUNFEI.apiSecret, XUNFEI.apiKey) } };
+                    else if (action === 'iat') result = { status: 200, data: { url: generateXunfeiAuthUrl(XUNFEI.iatHost, XUNFEI.iatPath, XUNFEI.apiSecret, XUNFEI.apiKey) } };
+                    else if (action === 'tts') result = { status: 200, data: { url: generateXunfeiAuthUrl(XUNFEI_TTS.host, XUNFEI_TTS.path, XUNFEI_TTS.apiSecret, XUNFEI_TTS.apiKey), appId: XUNFEI_TTS.appId, vcn: XUNFEI_TTS.vcn } };
+                    else result = { status: 400, data: { error: 'Unknown xunfei action' } };
                     break;
                 case '/api/health':
                     result = { status: 200, data: { status: 'ok', time: new Date().toISOString() } };
                     break;
-                case '/api/auth/register':
-                    result = await handleAuthRegister(parsed);
-                    break;
-                case '/api/auth/login':
-                    result = await handleAuthLogin(parsed);
-                    break;
-                case '/api/auth/me':
-                    result = handleAuthMe(req);
+                case '/api/auth':
+                    if (action === 'register') result = await handleAuthRegister(parsed);
+                    else if (action === 'login') result = await handleAuthLogin(parsed);
+                    else if (action === 'me') result = handleAuthMe(req);
+                    else result = { status: 400, data: { error: 'Unknown auth action' } };
                     break;
                 case '/api/usage':
                     result = await handleUsage(req, parsed);
                     break;
-                case '/api/admin/users':
-                    result = await handleAdminUsers(req);
-                    break;
-                case '/api/admin/stats':
-                    result = await handleAdminStats(req);
+                case '/api/admin':
+                    if (action === 'users') result = await handleAdminUsers(req);
+                    else if (action === 'stats') result = await handleAdminStats(req);
+                    else result = { status: 400, data: { error: 'Unknown admin action' } };
                     break;
                 default:
                     result = { status: 404, data: { error: 'Unknown endpoint: ' + req.url } };
