@@ -26,13 +26,13 @@ class SceneManager {
         };
     }
 
-    async generateScene(subject, category) {
+    async generateScene(subject, category, sceneDescription) {
         this.subject = subject;
         this.category = category;
         const config = window.APP_CONFIG || {};
         const proxyUrl = config.proxyUrl || '';
 
-        const prompt = this._buildImagePrompt(subject, category);
+        const prompt = this._buildImagePrompt(subject, category, sceneDescription);
 
         const response = await fetch(`${proxyUrl}/api/image_generation`, {
             method: 'POST',
@@ -45,31 +45,9 @@ class SceneManager {
         return data.url;
     }
 
-    _buildImagePrompt(subject, category) {
-        const categoryMap = {
-            'fruit': 'a fruit market stall with colorful fresh fruits on display',
-            'animal': 'a nature scene with animals in their habitat',
-            'food': 'a cozy kitchen or dining table with delicious food',
-            'school': 'a bright classroom with school supplies and books',
-            'family': 'a warm home interior with family activities',
-            'travel': 'a scenic travel destination with landmarks',
-            'shopping': 'a friendly shop or supermarket aisle',
-            'weather': 'a beautiful outdoor scene showing weather',
-            'body': 'a friendly cartoon character showing body parts',
-            'color': 'a vibrant scene full of colorful objects',
-            'number': 'a fun scene with objects to count',
-            'clothing': 'a wardrobe or clothing store display',
-            'transport': 'a busy street or station with vehicles',
-            'nature': 'a peaceful natural landscape with plants',
-            'sports': 'a sports field or playground with equipment',
-            'house': 'a cozy house interior or neighborhood',
-            'occupation': 'a workplace scene with professional tools',
-            'emotion': 'expressive cartoon faces showing feelings'
-        };
-
-        const sceneDesc = categoryMap[category] || `a scene related to ${category}`;
-        const prompt = `Flat cartoon illustration, ${sceneDesc}, featuring ${subject}, bright warm colors, simple clean background, child-friendly educational style, no text, no people faces, safe for children, G-rated content`;
-        return prompt;
+    _buildImagePrompt(subject, category, sceneDescription) {
+        const desc = sceneDescription || `a scene with ${subject}`;
+        return `${desc}, no text, no letters, no words, no writing, no watermarks, safe for children`;
     }
 
     async generateDialogue(subject, category) {

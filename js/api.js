@@ -204,12 +204,12 @@ class API {
         const messages = [
             {
                 role: 'system',
-                content: `你是一个英语教学助手。根据给定的主题和场景，生成一段简单的英语对话。
+                content: `你是一个英语教学助手。根据给定的主题，生成一段简单的英语对话。
 
 重要：只返回纯JSON，不要添加任何其他文字或markdown代码块标记。
 
 返回格式：
-{"dialogue":[{"speaker":"A","english":"Hello!","chinese":"你好！"},{"speaker":"B","english":"Hi!","chinese":"嗨！"}],"practice_prompt":"Now it's your turn! Try to answer: ___","practice_answer":"参考答案"}
+{"dialogue":[{"speaker":"A","english":"Hello!","chinese":"你好！"},{"speaker":"B","english":"Hi!","chinese":"嗨！"}],"scene_description":"A cozy living room with a sofa and a coffee table, warm afternoon sunlight coming through the window","practice_prompt":"Now it's your turn! Try to answer: ___","practice_answer":"参考答案"}
 
 要求：
 1. 生成3-4轮对话（6-8条消息）
@@ -217,12 +217,13 @@ class API {
 3. 两个说话人A和B，场景自然
 4. 使用简单英语，适合初学者
 5. 每句英文不超过10个词
-6. practice_prompt是给用户的练习提示，留出空白让用户回答
-7. practice_answer是参考答案`
+6. scene_description必须用英文描述对话发生的具体场景，包括地点、物品、氛围，用于生成场景插图，不要出现人物和文字
+7. practice_prompt是给用户的练习提示，留出空白让用户回答
+8. practice_answer是参考答案`
             },
             {
                 role: 'user',
-                content: `主题单词：${subject}\n分类：${category}\n场景描述：${sceneDescription || `A scene involving ${subject}`}\n\n请生成一段包含该单词的简单英语对话。`
+                content: `主题单词：${subject}\n分类：${category}\n\n请生成一段包含该单词的简单英语对话。`
             }
         ];
 

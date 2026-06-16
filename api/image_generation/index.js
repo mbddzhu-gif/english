@@ -14,7 +14,7 @@ module.exports = async (req, res) => {
         prompt: prompt,
         size: size || '1024x768',
         steps: 8,
-        guidance: 1.5
+        guidance: 0
     };
 
     const maxRetries = 3;

@@ -223,17 +223,13 @@ async function handleUnderstandImage(body) {
 
 // ============ 聊天 - 星火 Coding Plan ============
 async function handleChatCompletion(body) {
-    // 将前端传来的 messages 转发，强制使用 astron-code-latest 模型
     const chatBody = {
         model: XF_MODEL,
         messages: body.messages || [],
-        stream: false,
-        temperature: body.temperature || 0.7,
-        top_p: body.top_p || 0.95
+        stream: false
     };
-    if (body.max_completion_tokens) {
-        chatBody.max_tokens = body.max_completion_tokens;
-    }
+    if (body.temperature !== undefined) chatBody.temperature = body.temperature;
+    if (body.max_completion_tokens) chatBody.max_tokens = body.max_completion_tokens;
 
     const maxRetries = 3;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -277,7 +273,7 @@ async function handleImageGeneration(body) {
         prompt: prompt,
         size: size || '1024x768',
         steps: 8,
-        guidance: 1.5
+        guidance: 0
     };
 
     const maxRetries = 3;
@@ -511,6 +507,8 @@ const MIME_TYPES = {
 
 function serveStaticFile(req, res) {
     let filePath = req.url === '/' ? '/index.html' : req.url;
+    // 去掉查询参数（如 ?v=20250616a）
+    filePath = filePath.split('?')[0];
     const fullPath = path.join(__dirname, filePath);
 
     if (!fullPath.startsWith(__dirname)) {
@@ -553,8 +551,9 @@ const server = http.createServer((req, res) => {
         try {
             const parsed = body ? JSON.parse(body) : {};
             let result;
+            const urlPath = req.url.split('?')[0];
 
-            switch (req.url) {
+            switch (urlPath) {
                 case '/api/understand_image':
                     result = await handleUnderstandImage(parsed);
                     break;

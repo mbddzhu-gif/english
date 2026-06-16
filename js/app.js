@@ -579,16 +579,12 @@ class App {
         try {
             const dialogueResult = await this.api.generateDialogue(this._currentObject, 'other');
 
-            let sceneDescription = '';
             if (dialogueResult && dialogueResult.dialogue && dialogueResult.dialogue.length > 0) {
                 this._currentDialogue = dialogueResult.dialogue.map(d => ({
                     speaker: d.speaker === 'A' ? 'Person A' : 'Person B',
                     text: d.english,
                     chinese: d.chinese || ''
                 }));
-                sceneDescription = dialogueResult.dialogue
-                    .map(d => d.english)
-                    .join('. ');
             } else {
                 this._currentDialogue = [];
             }
@@ -596,7 +592,10 @@ class App {
             this._showLoading('正在生成场景图片...');
             const config = window.APP_CONFIG || {};
             const proxyUrl = config.proxyUrl || '';
-            const imgPrompt = `Flat cartoon illustration, a scene about ${sceneDescription || this._currentObject}, bright warm colors, simple clean background, child-friendly educational style, no text, no people faces, safe for children, G-rated content`;
+
+            // 使用 AI 生成的场景描述，比泛泛的提示词更精准
+            const sceneDesc = dialogueResult.scene_description || `a scene with ${this._currentObject}`;
+            const imgPrompt = `${sceneDesc}, no text, no letters, no words, no writing, no watermarks, safe for children`;
             const imgResponse = await fetch(`${proxyUrl}/api/image_generation`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...window.authManager.getAuthHeaders() },
