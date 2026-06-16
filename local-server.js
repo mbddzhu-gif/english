@@ -273,7 +273,7 @@ async function handleImageGeneration(body) {
         prompt: prompt,
         size: size || '1024x768',
         steps: 8,
-        guidance: 0
+        guidance: 1.5
     };
 
     const maxRetries = 3;

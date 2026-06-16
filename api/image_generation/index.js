@@ -17,7 +17,7 @@ module.exports = async (req, res) => {
         prompt: prompt,
         size: imageSize,
         steps: 8,
-        guidance: 0
+        guidance: 1.5
     };
 
     const maxRetries = 2;
