@@ -1,4 +1,84 @@
-const { CORS_HEADERS, MS_API_KEY, MS_API_HOST, MS_MODEL, httpsRequest, httpsGet } = require('../_lib');
+const https = require('https');
+
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+};
+
+const MS_API_KEY = 'ms-f76bd564-e3d6-4215-8e8c-13a3366c1733';
+const MS_API_HOST = 'https://api-inference.modelscope.cn';
+const MS_MODEL = 'Tongyi-MAI/Z-Image-Turbo';
+
+function httpsRequest(host, endpoint, body, apiKey, timeout = 30000, extraHeaders = {}) {
+    return new Promise((resolve, reject) => {
+        const urlObj = new URL(host + endpoint);
+        const postData = JSON.stringify(body);
+        const options = {
+            hostname: urlObj.hostname,
+            path: urlObj.pathname,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Length': Buffer.byteLength(postData),
+                ...extraHeaders
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve({ status: res.statusCode, data: JSON.parse(data) });
+                } catch (e) {
+                    resolve({ status: res.statusCode, data: data });
+                }
+            });
+        });
+        req.on('error', reject);
+        req.setTimeout(timeout, () => {
+            req.destroy();
+            reject(new Error('Request timeout'));
+        });
+        req.write(postData);
+        req.end();
+    });
+}
+
+function httpsGet(host, endpoint, apiKey, timeout = 15000, extraHeaders = {}) {
+    return new Promise((resolve, reject) => {
+        const urlObj = new URL(host + endpoint);
+        const options = {
+            hostname: urlObj.hostname,
+            path: urlObj.pathname,
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                ...extraHeaders
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve({ status: res.statusCode, data: JSON.parse(data) });
+                } catch (e) {
+                    resolve({ status: res.statusCode, data: data });
+                }
+            });
+        });
+        req.on('error', reject);
+        req.setTimeout(timeout, () => {
+            req.destroy();
+            reject(new Error('Request timeout'));
+        });
+        req.end();
+    });
+}
 
 module.exports = async (req, res) => {
     Object.entries(CORS_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
@@ -32,7 +112,6 @@ module.exports = async (req, res) => {
                 return res.status(200).json({ status: 'failed', error: errorMsg });
             }
 
-            // 仍在运行中
             return res.status(200).json({ status: taskStatus || 'running' });
         } catch (e) {
             console.error(`[ImageGen] Poll error: ${e.message}`);
@@ -75,7 +154,6 @@ module.exports = async (req, res) => {
 
         // 检查是否已经直接返回了结果
         if (submitResult.data?.task_status === 'SUCCEED') {
-            // 有些情况下提交就完成了，直接返回
             const pollResult = await httpsGet(
                 MS_API_HOST, `/v1/tasks/${taskId}`, MS_API_KEY, 15000,
                 { 'X-ModelScope-Task-Type': 'image_generation' }
