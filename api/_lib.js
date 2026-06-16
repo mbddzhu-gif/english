@@ -1,5 +1,18 @@
 const https = require('https');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'english-learning-secret-2024';
+
+function verifyToken(req) {
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+    try {
+        return jwt.verify(authHeader.slice(7), JWT_SECRET);
+    } catch (e) {
+        return null;
+    }
+}
 
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -116,6 +129,8 @@ function generateXunfeiAuthUrl({ host, path, apiSecret, apiKey }) {
 
 module.exports = {
     CORS_HEADERS,
+    JWT_SECRET,
+    verifyToken,
     ZHIPU_API_KEY,
     ZHIPU_API_HOST,
     MS_API_KEY,

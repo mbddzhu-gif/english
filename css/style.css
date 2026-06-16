@@ -1576,3 +1576,104 @@ body {
 .scene-practice {
     padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* ============ 登录/注册页面 ============ */
+.auth-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100dvh;
+    padding: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.auth-logo {
+    font-size: 64px;
+    margin-bottom: 16px;
+}
+
+.auth-title {
+    color: #fff;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 8px;
+}
+
+.auth-subtitle {
+    color: rgba(255,255,255,0.8);
+    font-size: 14px;
+    margin: 0 0 32px;
+}
+
+.auth-form {
+    width: 100%;
+    max-width: 360px;
+}
+
+.auth-field {
+    margin-bottom: 16px;
+}
+
+.auth-field input {
+    width: 100%;
+    padding: 14px 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    background: rgba(255,255,255,0.95);
+    box-sizing: border-box;
+    outline: none;
+}
+
+.auth-field input:focus {
+    box-shadow: 0 0 0 2px #667eea;
+}
+
+.auth-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #667eea;
+    background: #fff;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: transform 0.1s;
+}
+
+.auth-btn:active {
+    transform: scale(0.98);
+}
+
+.auth-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.auth-switch {
+    color: rgba(255,255,255,0.8);
+    font-size: 14px;
+    margin-top: 20px;
+}
+
+.auth-switch a {
+    color: #fff;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.auth-error {
+    color: #ff6b6b;
+    background: rgba(255,255,255,0.9);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 12px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+    display: none;
+}

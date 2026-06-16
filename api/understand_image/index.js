@@ -25,6 +25,7 @@ module.exports = async (req, res) => {
     };
 
     const maxRetries = 3;
+    const retryIntervals = [5000, 15000, 30000];
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
             const result = await httpsRequest(ZHIPU_API_HOST, '/api/paas/v4/chat/completions', zhipuBody, ZHIPU_API_KEY);
@@ -42,17 +43,26 @@ module.exports = async (req, res) => {
             }
 
             const errorMsg = result.data.error ? result.data.error.message : `HTTP ${result.status}`;
+
+            // 检测服务过载错误
+            const overloadKeywords = ['访问量过大', 'rate limit', 'too many requests', '并发', '限流', 'overload'];
+            const isOverload = overloadKeywords.some(kw => errorMsg.toLowerCase().includes(kw.toLowerCase()));
+
             if (attempt < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+                await new Promise(resolve => setTimeout(resolve, retryIntervals[attempt]));
                 continue;
+            }
+
+            if (isOverload) {
+                return res.status(503).json({ error: '图片识别服务繁忙，请稍后重试', retryable: true });
             }
             return res.status(500).json({ error: `图片识别失败: ${errorMsg}` });
         } catch (e) {
             if (attempt < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+                await new Promise(resolve => setTimeout(resolve, retryIntervals[attempt]));
                 continue;
             }
-            return res.status(503).json({ error: '图片识别服务暂时不可用', retryable: true });
+            return res.status(503).json({ error: '图片识别服务暂时不可用，请稍后重试', retryable: true });
         }
     }
 };

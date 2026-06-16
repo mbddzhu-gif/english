@@ -30,6 +30,13 @@ class App {
         this._dialogueIndex = 0;
         this._sceneActive = false;
         this._initEventListeners();
+
+        // Check if user is logged in
+        if (!window.authManager.isLoggedIn()) {
+            this._showPage('login');
+        } else {
+            this._showPage('home');
+        }
     }
 
     _initEventListeners() {
@@ -91,6 +98,71 @@ class App {
                 this._sendSceneAnswer();
             }
         });
+
+        // Auth events
+        document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const phone = document.getElementById('login-phone').value;
+            const password = document.getElementById('login-password').value;
+            const errorEl = document.getElementById('login-error');
+            const btn = e.target.querySelector('.auth-btn');
+            try {
+                if (errorEl) { errorEl.style.display = 'none'; }
+                if (btn) btn.disabled = true;
+                await window.authManager.login(phone, password);
+                this._updateAuthUI();
+                this._showPage('home');
+            } catch (err) {
+                if (errorEl) { errorEl.textContent = err.message; errorEl.style.display = 'block'; }
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        });
+
+        document.getElementById('register-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const phone = document.getElementById('register-phone').value;
+            const nickname = document.getElementById('register-nickname').value;
+            const password = document.getElementById('register-password').value;
+            const errorEl = document.getElementById('register-error');
+            const btn = e.target.querySelector('.auth-btn');
+            try {
+                if (errorEl) { errorEl.style.display = 'none'; }
+                if (btn) btn.disabled = true;
+                await window.authManager.register(phone, nickname, password);
+                this._updateAuthUI();
+                this._showPage('home');
+            } catch (err) {
+                if (errorEl) { errorEl.textContent = err.message; errorEl.style.display = 'block'; }
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        });
+
+        document.getElementById('to-register')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this._showPage('register');
+        });
+
+        document.getElementById('to-login')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this._showPage('login');
+        });
+
+        // Logout & Admin buttons
+        el('btn-logout').addEventListener('click', () => {
+            if (confirm('确定要退出登录吗？')) {
+                window.authManager.logout();
+                this._showPage('login');
+            }
+        });
+
+        el('btn-admin').addEventListener('click', () => {
+            window.location.href = '/admin.html';
+        });
+
+        // Show admin/logout buttons based on auth state
+        this._updateAuthUI();
     }
 
     async _handleImageSelected(base64) {
@@ -148,9 +220,11 @@ class App {
 
             this._showPage('result');
             this._updateStepIndicator(1);
+            window.authManager.logUsage('identify', result.english);
         } catch (error) {
             Utils.logError('identifyObject', error);
-            Utils.showToast('图片识别失败：' + error.message, 'error');
+            const msg = error.message && error.message.includes('服务繁忙') ? '服务繁忙，请稍后重试' : '图片识别失败：' + error.message;
+            Utils.showToast(msg, 'error');
             this._showPage('home');
         }
     }
@@ -406,6 +480,8 @@ class App {
         const statusEl = document.getElementById('record-status');
         if (statusEl) statusEl.textContent = '评测完成';
 
+        window.authManager.logUsage('practice', this._currentPhrase);
+
         this._showPage('practice');
     }
 
@@ -523,7 +599,7 @@ class App {
             const imgPrompt = `Flat cartoon illustration, a scene about ${sceneDescription || this._currentObject}, bright warm colors, simple clean background, child-friendly educational style, no text, no people faces, safe for children, G-rated content`;
             const imgResponse = await fetch(`${proxyUrl}/api/image_generation`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...window.authManager.getAuthHeaders() },
                 body: JSON.stringify({ prompt: imgPrompt, size: '1024x768' })
             });
             const imgData = await imgResponse.json();
@@ -577,6 +653,8 @@ class App {
 
         const btn = document.getElementById('btn-start-dialogue');
         if (btn) btn.textContent = '重新开始对话练习';
+
+        window.authManager.logUsage('dialogue', this._currentObject);
 
         await this._playNextAppLine();
     }
@@ -857,9 +935,11 @@ class App {
             'scene': 'page-scene',
             'camera': 'page-camera',
             'result': 'page-result',
-            'history': 'page-history'
+            'history': 'page-history',
+            'login': 'page-login',
+            'register': 'page-register'
         };
-        const pages = ['page-home', 'page-camera', 'page-loading', 'page-result', 'page-practice', 'page-scene', 'page-history'];
+        const pages = ['page-home', 'page-camera', 'page-loading', 'page-result', 'page-practice', 'page-scene', 'page-history', 'page-login', 'page-register'];
         const targetId = pageMap[pageId] || pageId;
         pages.forEach(id => {
             const page = document.getElementById(id);
@@ -873,10 +953,11 @@ class App {
 
         const isHome = pageId === 'home' || pageId === 'input';
         const isHistory = pageId === 'history';
-        if (header) header.classList.toggle('hidden', isHome);
-        if (stepIndicator) stepIndicator.classList.toggle('hidden', isHome || isHistory);
-        if (btnBack) btnBack.classList.toggle('hidden', isHome);
-        if (btnHome) btnHome.classList.toggle('hidden', isHome);
+        const isAuth = pageId === 'login' || pageId === 'register';
+        if (header) header.classList.toggle('hidden', isHome || isAuth);
+        if (stepIndicator) stepIndicator.classList.toggle('hidden', isHome || isHistory || isAuth);
+        if (btnBack) btnBack.classList.toggle('hidden', isHome || isAuth);
+        if (btnHome) btnHome.classList.toggle('hidden', isHome || isAuth);
     }
 
     _updateStepIndicator(step) {
@@ -886,6 +967,16 @@ class App {
             el.classList.toggle('active', index < step);
             el.classList.toggle('current', index === step - 1);
         });
+    }
+
+    _updateAuthUI() {
+        const logoutBtn = document.getElementById('btn-logout');
+        const adminBtn = document.getElementById('btn-admin');
+        const isLoggedIn = window.authManager.isLoggedIn();
+        const isAdmin = window.authManager.getUser()?.isAdmin;
+
+        if (logoutBtn) logoutBtn.classList.toggle('hidden', !isLoggedIn);
+        if (adminBtn) adminBtn.classList.toggle('hidden', !isAdmin);
     }
 
     _goBack() {

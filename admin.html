@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - 看图学英语</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f3f4f6;
+            color: #1f2937;
+            line-height: 1.6;
+        }
+        .admin-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .admin-header h1 { font-size: 20px; font-weight: 700; }
+        .admin-header-actions { display: flex; gap: 12px; align-items: center; }
+        .admin-header-actions span { font-size: 14px; opacity: 0.9; }
+        .btn-logout {
+            padding: 6px 16px;
+            border: 1px solid rgba(255,255,255,0.6);
+            border-radius: 8px;
+            background: transparent;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-logout:hover { background: rgba(255,255,255,0.15); }
+        .admin-body { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .stat-card .stat-label { font-size: 13px; color: #6b7280; margin-bottom: 4px; }
+        .stat-card .stat-value { font-size: 28px; font-weight: 800; color: #4f46e5; }
+        .stat-card .stat-sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #1f2937;
+        }
+
+        .chart-container {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+        }
+        .chart-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; color: #374151; }
+        .bar-chart { display: flex; align-items: flex-end; gap: 12px; height: 160px; padding-top: 20px; }
+        .bar-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .bar-fill {
+            width: 100%;
+            max-width: 48px;
+            border-radius: 6px 6px 0 0;
+            background: linear-gradient(180deg, #667eea, #764ba2);
+            transition: height 0.5s ease;
+            min-height: 4px;
+        }
+        .bar-label { font-size: 11px; color: #6b7280; white-space: nowrap; }
+        .bar-value { font-size: 12px; font-weight: 600; color: #4f46e5; }
+
+        .users-table-wrap {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            overflow-x: auto;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: #f9fafb; }
+        th { padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
+        td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #f3f4f6; }
+        tr:hover td { background: #f9fafb; }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-admin { background: #ede9fe; color: #7c3aed; }
+        .badge-user { background: #e0f2fe; color: #0284c7; }
+
+        .no-access {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100dvh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            text-align: center;
+            padding: 24px;
+        }
+        .no-access h1 { font-size: 48px; margin-bottom: 16px; }
+        .no-access p { font-size: 18px; margin-bottom: 24px; opacity: 0.9; }
+        .no-access a {
+            color: #fff;
+            text-decoration: underline;
+            font-size: 16px;
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid #e5e7eb;
+            border-top-color: #4f46e5;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 640px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .bar-chart { gap: 6px; }
+            .bar-label { font-size: 10px; }
+            th, td { padding: 8px 10px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="admin-app">
+        <div id="no-access" class="no-access" style="display:none">
+            <h1>🔒</h1>
+            <p>无权限访问管理后台</p>
+            <a href="/">返回首页</a>
+        </div>
+
+        <div id="admin-content" style="display:none">
+            <header class="admin-header">
+                <h1>📚 管理后台</h1>
+                <div class="admin-header-actions">
+                    <span id="admin-user-name"></span>
+                    <button class="btn-logout" id="btn-admin-logout">退出登录</button>
+                </div>
+            </header>
+
+            <div class="admin-body">
+                <div class="stats-grid" id="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">总用户数</div>
+                        <div class="stat-value" id="stat-total-users">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">今日活跃</div>
+                        <div class="stat-value" id="stat-today-active">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">总使用次数</div>
+                        <div class="stat-value" id="stat-total-usage">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">今日使用</div>
+                        <div class="stat-value" id="stat-today-usage">-</div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">近7天使用趋势</div>
+                    <div class="bar-chart" id="usage-chart">
+                        <div class="loading-state"><div class="spinner"></div>加载中...</div>
+                    </div>
+                </div>
+
+                <h2 class="section-title">用户列表</h2>
+                <div class="users-table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>昵称</th>
+                                <th>手机号</th>
+                                <th>角色</th>
+                                <th>注册时间</th>
+                                <th>使用次数</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-tbody">
+                            <tr><td colspan="5" class="loading-state"><div class="spinner"></div>加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const token = localStorage.getItem('auth_token');
+        const user = JSON.parse(localStorage.getItem('auth_user') || 'null');
+
+        if (!token || !user || !user.isAdmin) {
+            document.getElementById('no-access').style.display = 'flex';
+            document.getElementById('admin-content').style.display = 'none';
+            return;
+        }
+
+        document.getElementById('no-access').style.display = 'none';
+        document.getElementById('admin-content').style.display = 'block';
+        document.getElementById('admin-user-name').textContent = user.nickname || '管理员';
+
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const proxyUrl = isLocal ? 'http://localhost:3456' : window.location.origin;
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+
+        document.getElementById('btn-admin-logout').addEventListener('click', () => {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_user');
+            window.location.href = '/';
+        });
+
+        function maskPhone(phone) {
+            if (!phone || phone.length < 7) return phone || '-';
+            return phone.slice(0, 3) + '****' + phone.slice(-4);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        }
+
+        function getDayLabel(dateStr) {
+            const d = new Date(dateStr);
+            return `${d.getMonth()+1}/${d.getDate()}`;
+        }
+
+        async function loadStats() {
+            try {
+                const resp = await fetch(`${proxyUrl}/api/admin/stats`, { headers });
+                if (!resp.ok) throw new Error('获取统计失败');
+                const data = await resp.json();
+
+                document.getElementById('stat-total-users').textContent = data.totalUsers ?? '-';
+                document.getElementById('stat-today-active').textContent = data.todayActive ?? '-';
+                document.getElementById('stat-total-usage').textContent = data.totalUsage ?? '-';
+                document.getElementById('stat-today-usage').textContent = data.todayUsage ?? '-';
+
+                if (data.dailyStats && data.dailyStats.length > 0) {
+                    const maxVal = Math.max(...data.dailyStats.map(d => d.count), 1);
+                    document.getElementById('usage-chart').innerHTML = data.dailyStats.map(d => {
+                        const heightPct = Math.round((d.count / maxVal) * 100);
+                        return `
+                            <div class="bar-item">
+                                <div class="bar-value">${d.count}</div>
+                                <div class="bar-fill" style="height:${Math.max(heightPct, 3)}%"></div>
+                                <div class="bar-label">${getDayLabel(d.date)}</div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    document.getElementById('usage-chart').innerHTML = '<div style="text-align:center;color:#9ca3af;width:100%">暂无数据</div>';
+                }
+            } catch (e) {
+                console.error('Stats load error:', e);
+                document.getElementById('usage-chart').innerHTML = '<div style="text-align:center;color:#ef4444;width:100%">加载失败</div>';
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const resp = await fetch(`${proxyUrl}/api/admin/users`, { headers });
+                if (!resp.ok) throw new Error('获取用户列表失败');
+                const data = await resp.json();
+                const users = data.users || [];
+
+                if (users.length === 0) {
+                    document.getElementById('users-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:40px">暂无用户</td></tr>';
+                    return;
+                }
+
+                document.getElementById('users-tbody').innerHTML = users.map(u => `
+                    <tr>
+                        <td>${u.nickname || '-'}</td>
+                        <td>${maskPhone(u.phone)}</td>
+                        <td><span class="badge ${u.is_admin ? 'badge-admin' : 'badge-user'}">${u.is_admin ? '管理员' : '用户'}</span></td>
+                        <td>${formatDate(u.created_at)}</td>
+                        <td>${u.usage_count ?? 0}</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Users load error:', e);
+                document.getElementById('users-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:40px">加载失败</td></tr>';
+            }
+        }
+
+        loadStats();
+        loadUsers();
+    })();
+    </script>
+</body>
+</html>

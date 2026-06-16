@@ -1,8 +1,12 @@
+require('dotenv').config();
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { getSupabase } = require('./db');
 
 const PORT = 3456;
 
@@ -47,6 +51,19 @@ const CORS_HEADERS = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
+
+// ============ JWT 认证 ============
+const JWT_SECRET = process.env.JWT_SECRET || 'english-learning-secret-2024';
+
+function verifyToken(req) {
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+    try {
+        return jwt.verify(authHeader.slice(7), JWT_SECRET);
+    } catch (e) {
+        return null;
+    }
+}
 
 // ============ 通用 HTTPS 请求 ============
 function httpsRequest(host, endpoint, body, apiKey, timeout = 60000, extraHeaders = {}) {
@@ -159,6 +176,7 @@ async function handleUnderstandImage(body) {
     };
 
     const maxRetries = 3;
+    const retryIntervals = [5000, 15000, 30000];
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
             const result = await httpsRequest(ZHIPU_API_HOST, '/api/paas/v4/chat/completions', zhipuBody, ZHIPU_API_KEY);
@@ -179,16 +197,23 @@ async function handleUnderstandImage(body) {
             const errorMsg = result.data.error ? result.data.error.message : `HTTP ${result.status}`;
             console.log(`[Proxy] Zhipu VLM failed: ${errorMsg}, attempt ${attempt + 1}/${maxRetries}`);
 
+            // 检测服务过载错误
+            const overloadKeywords = ['访问量过大', 'rate limit', 'too many requests', '并发', '限流', 'overload'];
+            const isOverload = overloadKeywords.some(kw => errorMsg.toLowerCase().includes(kw.toLowerCase()));
+
             if (attempt < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+                await new Promise(resolve => setTimeout(resolve, retryIntervals[attempt]));
                 continue;
             }
 
+            if (isOverload) {
+                return { status: 503, data: { error: '图片识别服务繁忙，请稍后重试', retryable: true } };
+            }
             return { status: 500, data: { error: `图片识别失败: ${errorMsg}` } };
         } catch (e) {
             console.log(`[Proxy] Zhipu VLM exception: ${e.message}, attempt ${attempt + 1}/${maxRetries}`);
             if (attempt < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+                await new Promise(resolve => setTimeout(resolve, retryIntervals[attempt]));
                 continue;
             }
             return { status: 503, data: { error: '图片识别服务暂时不可用，请稍后重试', retryable: true } };
@@ -332,6 +357,142 @@ async function handleImageGeneration(body) {
     }
 }
 
+// ============ 认证 - 注册 ============
+async function handleAuthRegister(body) {
+    const { phone, nickname, password } = body || {};
+    if (!phone || !/^\d{11}$/.test(phone)) return { status: 400, data: { error: '请输入有效的11位手机号' } };
+    if (!nickname || nickname.length < 2 || nickname.length > 20) return { status: 400, data: { error: '昵称需要2-20个字符' } };
+    if (!password || password.length < 6 || password.length > 20) return { status: 400, data: { error: '密码需要6-20个字符' } };
+
+    try {
+        const supabase = getSupabase();
+        const { data: existing } = await supabase.from('users').select('id').eq('phone', phone).limit(1);
+        if (existing && existing.length > 0) return { status: 409, data: { error: '该手机号已注册' } };
+
+        const passwordHash = await bcrypt.hash(password, 10);
+        const { data: result, error } = await supabase.from('users').insert({ phone, nickname, password_hash: passwordHash }).select('id, phone, nickname, is_admin').single();
+        if (error) throw error;
+
+        const token = jwt.sign({ userId: result.id, phone: result.phone, isAdmin: result.is_admin }, JWT_SECRET, { expiresIn: '7d' });
+        return { status: 201, data: { token, user: { id: result.id, nickname: result.nickname, phone: result.phone, isAdmin: result.is_admin } } };
+    } catch (e) {
+        console.error('Register error:', e);
+        return { status: 500, data: { error: '注册失败，请稍后重试' } };
+    }
+}
+
+// ============ 认证 - 登录 ============
+async function handleAuthLogin(body) {
+    const { phone, password } = body || {};
+    if (!phone || !password) return { status: 400, data: { error: '请输入手机号和密码' } };
+
+    try {
+        const supabase = getSupabase();
+        const { data: users } = await supabase.from('users').select('id, phone, nickname, password_hash, is_admin').eq('phone', phone).limit(1);
+        if (!users || users.length === 0) return { status: 401, data: { error: '手机号或密码错误' } };
+
+        const user = users[0];
+        const valid = await bcrypt.compare(password, user.password_hash);
+        if (!valid) return { status: 401, data: { error: '手机号或密码错误' } };
+
+        await supabase.from('users').update({ last_login_at: new Date().toISOString() }).eq('id', user.id);
+        const token = jwt.sign({ userId: user.id, phone: user.phone, isAdmin: user.is_admin }, JWT_SECRET, { expiresIn: '7d' });
+        return { status: 200, data: { token, user: { id: user.id, nickname: user.nickname, phone: user.phone, isAdmin: user.is_admin } } };
+    } catch (e) {
+        console.error('Login error:', e);
+        return { status: 500, data: { error: '登录失败，请稍后重试' } };
+    }
+}
+
+// ============ 认证 - 获取当前用户 ============
+function handleAuthMe(req) {
+    const user = verifyToken(req);
+    if (!user) return { status: 401, data: { error: '未登录或登录已过期' } };
+    return { status: 200, data: { user } };
+}
+
+// ============ 使用记录 ============
+async function handleUsage(req, body) {
+    const user = verifyToken(req);
+    if (!user) return { status: 401, data: { error: '未登录' } };
+
+    const { action_type, subject, detail } = body || {};
+    if (!action_type) return { status: 400, data: { error: 'Missing action_type' } };
+
+    try {
+        const supabase = getSupabase();
+        const { error } = await supabase.from('usage_logs').insert({ user_id: user.userId, action_type, subject: subject || null, detail: detail || null });
+        if (error) throw error;
+        return { status: 201, data: { ok: true } };
+    } catch (e) {
+        console.error('Usage log error:', e);
+        return { status: 500, data: { error: '记录失败' } };
+    }
+}
+
+// ============ 管理员 - 用户列表 ============
+async function handleAdminUsers(req) {
+    const user = verifyToken(req);
+    if (!user || !user.isAdmin) return { status: 403, data: { error: '无权限访问' } };
+
+    try {
+        const supabase = getSupabase();
+        const { data: users, error } = await supabase.from('users').select('id, nickname, phone, is_admin, created_at, last_login_at').order('created_at', { ascending: false });
+        if (error) throw error;
+
+        const { data: usageCounts } = await supabase.from('usage_logs').select('user_id');
+
+        const countMap = {};
+        (usageCounts || []).forEach(r => { countMap[r.user_id] = (countMap[r.user_id] || 0) + 1; });
+
+        const masked = (users || []).map(u => ({
+            ...u,
+            phone: u.phone.slice(0, 3) + '****' + u.phone.slice(-4),
+            usage_count: countMap[u.id] || 0
+        }));
+        return { status: 200, data: { users: masked } };
+    } catch (e) {
+        console.error('Admin users error:', e);
+        return { status: 500, data: { error: '查询失败' } };
+    }
+}
+
+// ============ 管理员 - 统计数据 ============
+async function handleAdminStats(req) {
+    const user = verifyToken(req);
+    if (!user || !user.isAdmin) return { status: 403, data: { error: '无权限访问' } };
+
+    try {
+        const supabase = getSupabase();
+        const { count: totalUsers } = await supabase.from('users').select('*', { count: 'exact', head: true });
+        const { count: totalUsage } = await supabase.from('usage_logs').select('*', { count: 'exact', head: true });
+
+        const today = new Date().toISOString().split('T')[0];
+        const { count: todayUsage } = await supabase.from('usage_logs').select('*', { count: 'exact', head: true }).gte('created_at', today);
+        const { data: todayActiveData } = await supabase.from('usage_logs').select('user_id').gte('created_at', today);
+        const todayActive = new Set((todayActiveData || []).map(r => r.user_id)).size;
+
+        const sevenDaysAgo = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0];
+        const { data: dailyData } = await supabase.from('usage_logs').select('created_at').gte('created_at', sevenDaysAgo);
+
+        const dailyMap = {};
+        (dailyData || []).forEach(r => {
+            const date = r.created_at.split('T')[0];
+            dailyMap[date] = (dailyMap[date] || 0) + 1;
+        });
+        const dailyStats = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+            dailyStats.push({ date: d, count: dailyMap[d] || 0 });
+        }
+
+        return { status: 200, data: { totalUsers: totalUsers || 0, totalUsage: totalUsage || 0, todayUsage: todayUsage || 0, todayActive, dailyStats } };
+    } catch (e) {
+        console.error('Admin stats error:', e);
+        return { status: 500, data: { error: '查询失败' } };
+    }
+}
+
 // ============ 静态文件服务 ============
 const MIME_TYPES = {
     '.html': 'text/html; charset=utf-8',
@@ -415,6 +576,24 @@ const server = http.createServer((req, res) => {
                 case '/api/health':
                     result = { status: 200, data: { status: 'ok', time: new Date().toISOString() } };
                     break;
+                case '/api/auth/register':
+                    result = await handleAuthRegister(parsed);
+                    break;
+                case '/api/auth/login':
+                    result = await handleAuthLogin(parsed);
+                    break;
+                case '/api/auth/me':
+                    result = handleAuthMe(req);
+                    break;
+                case '/api/usage':
+                    result = await handleUsage(req, parsed);
+                    break;
+                case '/api/admin/users':
+                    result = await handleAdminUsers(req);
+                    break;
+                case '/api/admin/stats':
+                    result = await handleAdminStats(req);
+                    break;
                 default:
                     result = { status: 404, data: { error: 'Unknown endpoint: ' + req.url } };
             }
@@ -436,5 +615,11 @@ server.listen(PORT, () => {
     console.log(`  POST /api/image_generation  - 图片生成 (Z-Image-Turbo)`);
     console.log(`  GET  /api/xunfei/auth-ise    - 讯飞 ISE 鉴权`);
     console.log(`  GET  /api/xunfei/auth-iat    - 讯飞 IAT 鉴权`);
+    console.log(`  POST /api/auth/register     - 用户注册`);
+    console.log(`  POST /api/auth/login        - 用户登录`);
+    console.log(`  GET  /api/auth/me           - 获取当前用户`);
+    console.log(`  POST /api/usage             - 使用记录`);
+    console.log(`  GET  /api/admin/users       - 管理员-用户列表`);
+    console.log(`  GET  /api/admin/stats       - 管理员-统计数据`);
     console.log(`  GET  /api/health             - 健康检查\n`);
 });

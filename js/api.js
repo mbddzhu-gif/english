@@ -30,7 +30,7 @@ class API {
         try {
             response = await fetch(`${this.proxyUrl}/api/chatcompletion`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...window.authManager.getAuthHeaders() },
                 body: JSON.stringify(body)
             });
         } catch (fetchError) {
@@ -77,7 +77,7 @@ class API {
         try {
             response = await fetch(`${this.proxyUrl}/api/understand_image`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...window.authManager.getAuthHeaders() },
                 body: JSON.stringify({ image_base64: imageUrl, prompt: prompt })
             });
         } catch (fetchError) {
