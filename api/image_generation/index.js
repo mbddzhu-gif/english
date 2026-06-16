@@ -143,12 +143,20 @@ module.exports = async (req, res) => {
 
         if (submitResult.status >= 400) {
             const errMsg = submitResult.data?.error?.message || submitResult.data?.message || JSON.stringify(submitResult.data);
+            // 检查是否是配额用完
+            if (errMsg.includes('quota') || errMsg.includes('exceeded')) {
+                return res.status(200).json({ status: 'failed', error: '今日图片生成配额已用完，请明天再试' });
+            }
             return res.status(502).json({ error: `API错误(${submitResult.status}): ${errMsg}` });
         }
 
         const taskId = submitResult.data?.task_id;
         if (!taskId) {
             const errorMsg = submitResult.data?.error?.message || submitResult.data?.error || submitResult.data?.message || JSON.stringify(submitResult.data);
+            // 检查是否是配额用完
+            if (errorMsg.includes('quota') || errorMsg.includes('exceeded')) {
+                return res.status(200).json({ status: 'failed', error: '今日图片生成配额已用完，请明天再试' });
+            }
             return res.status(502).json({ error: `提交失败: ${errorMsg}` });
         }
 
