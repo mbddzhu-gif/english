@@ -1,4 +1,4 @@
-const { CORS_HEADERS, ZHIPU_API_KEY, ZHIPU_API_HOST, httpsRequest } = require('../_lib');
+const { CORS_HEADERS, MS_API_KEY, MS_API_HOST, MS_MODEL, httpsRequest, httpsGet } = require('../_lib');
 
 module.exports = async (req, res) => {
     Object.entries(CORS_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
@@ -10,26 +10,71 @@ module.exports = async (req, res) => {
     if (!prompt) return res.status(400).json({ error: 'Missing prompt' });
 
     const imageBody = {
-        model: 'cogview-3-flash',
+        model: MS_MODEL,
         prompt: prompt,
-        size: size || '1344x768'
+        size: size || '1024x768',
+        steps: 8,
+        guidance: 1.5
     };
 
     const maxRetries = 3;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-            const result = await httpsRequest(ZHIPU_API_HOST, '/api/paas/v4/images/generations', imageBody, ZHIPU_API_KEY);
+            // 步骤1: 提交异步任务
+            const submitResult = await httpsRequest(
+                MS_API_HOST, '/v1/images/generations', imageBody, MS_API_KEY, 60000,
+                { 'X-ModelScope-Async-Mode': 'true' }
+            );
 
-            if (result.status === 200 && result.data.data && result.data.data.length > 0) {
-                return res.status(200).json({ url: result.data.data[0].url, model: 'cogview-3-flash' });
+            const taskId = submitResult.data.task_id;
+            if (!taskId) {
+                const errorMsg = submitResult.data.error || submitResult.data.message || JSON.stringify(submitResult.data);
+                if (attempt < maxRetries - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
+                    continue;
+                }
+                return res.status(500).json({ error: `图片生成提交失败: ${errorMsg}` });
             }
 
-            const errorMsg = result.data.error ? result.data.error.message : `HTTP ${result.status}`;
+            // 步骤2: 轮询任务结果
+            const pollTimeout = 120000;
+            const pollInterval = 4000;
+            const startTime = Date.now();
+
+            while (Date.now() - startTime < pollTimeout) {
+                await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+                const pollResult = await httpsGet(
+                    MS_API_HOST, `/v1/tasks/${taskId}`, MS_API_KEY, 30000,
+                    { 'X-ModelScope-Task-Type': 'image_generation' }
+                );
+
+                const taskStatus = pollResult.data.task_status;
+
+                if (taskStatus === 'SUCCEED') {
+                    const imageUrl = pollResult.data.output_images && pollResult.data.output_images[0];
+                    if (imageUrl) {
+                        return res.status(200).json({ url: imageUrl, model: MS_MODEL });
+                    }
+                    return res.status(500).json({ error: '图片生成成功但未返回图片URL' });
+                }
+
+                if (taskStatus === 'FAILED') {
+                    const errorMsg = (pollResult.data.errors && pollResult.data.errors.message) || '未知错误';
+                    if (attempt < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
+                        break;
+                    }
+                    return res.status(500).json({ error: `图片生成失败: ${errorMsg}` });
+                }
+            }
+
+            // 轮询超时
             if (attempt < maxRetries - 1) {
                 await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
                 continue;
             }
-            return res.status(500).json({ error: `图片生成失败: ${errorMsg}` });
+            return res.status(504).json({ error: '图片生成超时，请稍后重试' });
         } catch (e) {
             if (attempt < maxRetries - 1) {
                 await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));

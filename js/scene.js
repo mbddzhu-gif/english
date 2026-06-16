@@ -37,7 +37,7 @@ class SceneManager {
         const response = await fetch(`${proxyUrl}/api/image_generation`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, size: '1344x768' })
+            body: JSON.stringify({ prompt, size: '1024x768' })
         });
         const data = await response.json();
         if (data.error) throw new Error(data.error);

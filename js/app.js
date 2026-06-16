@@ -524,7 +524,7 @@ class App {
             const imgResponse = await fetch(`${proxyUrl}/api/image_generation`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: imgPrompt, size: '1344x768' })
+                body: JSON.stringify({ prompt: imgPrompt, size: '1024x768' })
             });
             const imgData = await imgResponse.json();
             const imageUrl = imgData.url;

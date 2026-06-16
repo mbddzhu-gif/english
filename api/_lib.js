@@ -11,6 +11,11 @@ const CORS_HEADERS = {
 const ZHIPU_API_KEY = '51b00eab6a7b469687aa4cc228a70e1a.hCDzLmQOFuEQTG0L';
 const ZHIPU_API_HOST = 'https://open.bigmodel.cn';
 
+// ModelScope Z-Image-Turbo
+const MS_API_KEY = 'ms-f76bd564-e3d6-4215-8e8c-13a3366c1733';
+const MS_API_HOST = 'https://api-inference.modelscope.cn';
+const MS_MODEL = 'Tongyi-MAI/Z-Image-Turbo';
+
 // 星火 Coding Plan
 const XF_API_KEY = 'f50a5a1d8f94fb89e08ff98ff0b23b26:YTJhZjBkZTYxMjgwNDdjYjlhNTVmMWFk';
 const XF_API_HOST = 'https://maas-coding-api.cn-huabei-1.xf-yun.com';
@@ -26,7 +31,7 @@ const XUNFEI_TTS_API_SECRET = 'ZmUwMGQzNTUyZTI5NWYyNTQ4MWJlZjA5';
 const XUNFEI_TTS_APP_ID = 'ddd5e0b5';
 const XUNFEI_TTS_VCN = 'x4_enus_luna_assist';
 
-function httpsRequest(host, endpoint, body, apiKey, timeout = 60000) {
+function httpsRequest(host, endpoint, body, apiKey, timeout = 60000, extraHeaders = {}) {
     return new Promise((resolve, reject) => {
         const urlObj = new URL(host + endpoint);
         const postData = JSON.stringify(body);
@@ -37,7 +42,8 @@ function httpsRequest(host, endpoint, body, apiKey, timeout = 60000) {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
-                'Content-Length': Buffer.byteLength(postData)
+                'Content-Length': Buffer.byteLength(postData),
+                ...extraHeaders
             }
         };
 
@@ -62,6 +68,39 @@ function httpsRequest(host, endpoint, body, apiKey, timeout = 60000) {
     });
 }
 
+function httpsGet(host, endpoint, apiKey, timeout = 60000, extraHeaders = {}) {
+    return new Promise((resolve, reject) => {
+        const urlObj = new URL(host + endpoint);
+        const options = {
+            hostname: urlObj.hostname,
+            path: urlObj.pathname,
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                ...extraHeaders
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve({ status: res.statusCode, data: JSON.parse(data) });
+                } catch (e) {
+                    resolve({ status: res.statusCode, data: data });
+                }
+            });
+        });
+        req.on('error', reject);
+        req.setTimeout(timeout, () => {
+            req.destroy();
+            reject(new Error('Request timeout'));
+        });
+        req.end();
+    });
+}
+
 function generateXunfeiAuthUrl({ host, path, apiSecret, apiKey }) {
     const secret = apiSecret || XUNFEI_API_SECRET;
     const key = apiKey || XUNFEI_API_KEY;
@@ -79,6 +118,9 @@ module.exports = {
     CORS_HEADERS,
     ZHIPU_API_KEY,
     ZHIPU_API_HOST,
+    MS_API_KEY,
+    MS_API_HOST,
+    MS_MODEL,
     XF_API_KEY,
     XF_API_HOST,
     XF_MODEL,
@@ -89,5 +131,6 @@ module.exports = {
     XUNFEI_TTS_APP_ID,
     XUNFEI_TTS_VCN,
     httpsRequest,
+    httpsGet,
     generateXunfeiAuthUrl
 };

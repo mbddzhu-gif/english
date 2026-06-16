@@ -11,6 +11,11 @@ const ZHIPU_API_KEY = '51b00eab6a7b469687aa4cc228a70e1a.hCDzLmQOFuEQTG0L';
 const ZHIPU_API_HOST = 'https://open.bigmodel.cn';
 const ZHIPU_VLM_MODEL = 'glm-4.6v-flash';
 
+// ModelScope Z-Image-Turbo 图片生成
+const MS_API_KEY = 'ms-f76bd564-e3d6-4215-8e8c-13a3366c1733';
+const MS_API_HOST = 'https://api-inference.modelscope.cn';
+const MS_MODEL = 'Tongyi-MAI/Z-Image-Turbo';
+
 // 星火 Coding Plan 聊天 API
 const XF_API_KEY = 'f50a5a1d8f94fb89e08ff98ff0b23b26:YTJhZjBkZTYxMjgwNDdjYjlhNTVmMWFk';
 const XF_API_HOST = 'https://maas-coding-api.cn-huabei-1.xf-yun.com';
@@ -44,7 +49,7 @@ const CORS_HEADERS = {
 };
 
 // ============ 通用 HTTPS 请求 ============
-function httpsRequest(host, endpoint, body, apiKey, timeout = 60000) {
+function httpsRequest(host, endpoint, body, apiKey, timeout = 60000, extraHeaders = {}) {
     return new Promise((resolve, reject) => {
         const urlObj = new URL(host + endpoint);
         const postData = JSON.stringify(body);
@@ -55,7 +60,8 @@ function httpsRequest(host, endpoint, body, apiKey, timeout = 60000) {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
-                'Content-Length': Buffer.byteLength(postData)
+                'Content-Length': Buffer.byteLength(postData),
+                ...extraHeaders
             }
         };
 
@@ -76,6 +82,40 @@ function httpsRequest(host, endpoint, body, apiKey, timeout = 60000) {
             reject(new Error('Request timeout'));
         });
         req.write(postData);
+        req.end();
+    });
+}
+
+// ============ 通用 HTTPS GET 请求 ============
+function httpsGet(host, endpoint, apiKey, timeout = 60000, extraHeaders = {}) {
+    return new Promise((resolve, reject) => {
+        const urlObj = new URL(host + endpoint);
+        const options = {
+            hostname: urlObj.hostname,
+            path: urlObj.pathname,
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                ...extraHeaders
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve({ status: res.statusCode, data: JSON.parse(data) });
+                } catch (e) {
+                    resolve({ status: res.statusCode, data: data });
+                }
+            });
+        });
+        req.on('error', reject);
+        req.setTimeout(timeout, () => {
+            req.destroy();
+            reject(new Error('Request timeout'));
+        });
         req.end();
     });
 }
@@ -200,7 +240,7 @@ async function handleChatCompletion(body) {
     }
 }
 
-// ============ 图片生成 - 智谱 Cogview-3-Flash ============
+// ============ 图片生成 - ModelScope Z-Image-Turbo（异步模式） ============
 async function handleImageGeneration(body) {
     const { prompt, size } = body;
     if (!prompt) {
@@ -208,33 +248,81 @@ async function handleImageGeneration(body) {
     }
 
     const imageBody = {
-        model: 'cogview-3-flash',
+        model: MS_MODEL,
         prompt: prompt,
-        size: size || '1344x768'
+        size: size || '1024x768',
+        steps: 8,
+        guidance: 1.5
     };
 
     const maxRetries = 3;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-            const result = await httpsRequest(ZHIPU_API_HOST, '/api/paas/v4/images/generations', imageBody, ZHIPU_API_KEY);
+            // 步骤1: 提交异步任务
+            const submitResult = await httpsRequest(
+                MS_API_HOST, '/v1/images/generations', imageBody, MS_API_KEY, 60000,
+                { 'X-ModelScope-Async-Mode': 'true' }
+            );
 
-            if (result.status === 200 && result.data.data && result.data.data.length > 0) {
-                const imageUrl = result.data.data[0].url;
-                console.log('[Proxy] Image generation succeeded');
-                return { status: 200, data: { url: imageUrl, model: 'cogview-3-flash' } };
+            const taskId = submitResult.data.task_id;
+            if (!taskId) {
+                const errorMsg = submitResult.data.error || submitResult.data.message || JSON.stringify(submitResult.data);
+                console.log(`[Proxy] Z-Image submit failed: ${errorMsg}, attempt ${attempt + 1}/${maxRetries}`);
+                if (attempt < maxRetries - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
+                    continue;
+                }
+                return { status: 500, data: { error: `图片生成提交失败: ${errorMsg}` } };
             }
 
-            const errorMsg = result.data.error ? result.data.error.message : `HTTP ${result.status}`;
-            console.log(`[Proxy] Image generation failed: ${errorMsg}, attempt ${attempt + 1}/${maxRetries}`);
+            console.log(`[Proxy] Z-Image task submitted: ${taskId}`);
 
+            // 步骤2: 轮询任务结果
+            const pollTimeout = 120000; // 最多等2分钟
+            const pollInterval = 4000;  // 每4秒轮询一次
+            const startTime = Date.now();
+
+            while (Date.now() - startTime < pollTimeout) {
+                await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+                const pollResult = await httpsGet(
+                    MS_API_HOST, `/v1/tasks/${taskId}`, MS_API_KEY, 30000,
+                    { 'X-ModelScope-Task-Type': 'image_generation' }
+                );
+
+                const taskStatus = pollResult.data.task_status;
+
+                if (taskStatus === 'SUCCEED') {
+                    const imageUrl = pollResult.data.output_images && pollResult.data.output_images[0];
+                    if (imageUrl) {
+                        console.log('[Proxy] Z-Image generation succeeded');
+                        return { status: 200, data: { url: imageUrl, model: MS_MODEL } };
+                    }
+                    return { status: 500, data: { error: '图片生成成功但未返回图片URL' } };
+                }
+
+                if (taskStatus === 'FAILED') {
+                    const errorMsg = (pollResult.data.errors && pollResult.data.errors.message) || '未知错误';
+                    console.log(`[Proxy] Z-Image task failed: ${errorMsg}`);
+                    if (attempt < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
+                        break; // 跳出轮询，进入下一次重试
+                    }
+                    return { status: 500, data: { error: `图片生成失败: ${errorMsg}` } };
+                }
+
+                // RUNNING 或其他状态，继续轮询
+                console.log(`[Proxy] Z-Image task status: ${taskStatus}`);
+            }
+
+            // 轮询超时
             if (attempt < maxRetries - 1) {
                 await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
                 continue;
             }
-
-            return { status: 500, data: { error: `图片生成失败: ${errorMsg}` } };
+            return { status: 504, data: { error: '图片生成超时，请稍后重试' } };
         } catch (e) {
-            console.log(`[Proxy] Image generation exception: ${e.message}, attempt ${attempt + 1}/${maxRetries}`);
+            console.log(`[Proxy] Z-Image exception: ${e.message}, attempt ${attempt + 1}/${maxRetries}`);
             if (attempt < maxRetries - 1) {
                 await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
                 continue;
@@ -345,7 +433,7 @@ server.listen(PORT, () => {
     console.log(`\n🚀 微课堂 Server running at http://localhost:${PORT}`);
     console.log(`\nEndpoints:`);
     console.log(`  POST /api/understand_image  - 图像识别 (智谱 GLM-4.6V-Flash)`);
-    console.log(`  POST /api/chatcompletion     - 文本聊天 (星火 Astron)`);
+    console.log(`  POST /api/image_generation  - 图片生成 (Z-Image-Turbo)`);
     console.log(`  GET  /api/xunfei/auth-ise    - 讯飞 ISE 鉴权`);
     console.log(`  GET  /api/xunfei/auth-iat    - 讯飞 IAT 鉴权`);
     console.log(`  GET  /api/health             - 健康检查\n`);
