@@ -80,6 +80,12 @@ function httpsGet(host, endpoint, apiKey, timeout = 15000, extraHeaders = {}) {
     });
 }
 
+// 检查错误消息是否表示配额用完
+function isQuotaExceeded(msg) {
+    const lower = (msg || '').toLowerCase();
+    return lower.includes('quota') || lower.includes('exceeded');
+}
+
 module.exports = async (req, res) => {
     Object.entries(CORS_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
 
@@ -88,7 +94,7 @@ module.exports = async (req, res) => {
 
     const { prompt, size, task_id } = req.body || {};
 
-    // 模式2: 查询任务结果
+    // ====== 模式2: 查询任务结果 ======
     if (task_id) {
         try {
             const pollResult = await httpsGet(
@@ -104,22 +110,24 @@ module.exports = async (req, res) => {
                 if (imageUrl) {
                     return res.status(200).json({ status: 'succeeded', url: imageUrl, model: MS_MODEL });
                 }
-                return res.status(200).json({ status: 'succeeded', error: '未返回图片URL' });
+                return res.status(200).json({ status: 'failed', error: '图片生成成功但未返回图片URL' });
             }
 
             if (taskStatus === 'FAILED') {
                 const errorMsg = pollResult.data?.errors?.message || pollResult.data?.message || '未知错误';
-                return res.status(200).json({ status: 'failed', error: errorMsg });
+                return res.status(200).json({ status: 'failed', error: `生成失败: ${errorMsg}` });
             }
 
-            return res.status(200).json({ status: taskStatus || 'running' });
+            // RUNNING / PENDING / 其他状态
+            return res.status(200).json({ status: 'running' });
         } catch (e) {
             console.error(`[ImageGen] Poll error: ${e.message}`);
-            return res.status(200).json({ status: 'error', error: e.message });
+            // 网络错误不当作失败，让前端继续轮询
+            return res.status(200).json({ status: 'running' });
         }
     }
 
-    // 模式1: 提交生成任务
+    // ====== 模式1: 提交生成任务 ======
     if (!prompt) return res.status(400).json({ error: 'Missing prompt' });
 
     const imageSize = size || '1024x768';
@@ -141,36 +149,27 @@ module.exports = async (req, res) => {
 
         console.log(`[ImageGen] Submit response: status=${submitResult.status}, body=${JSON.stringify(submitResult.data).substring(0, 300)}`);
 
+        // API返回HTTP错误
         if (submitResult.status >= 400) {
             const errMsg = submitResult.data?.error?.message || submitResult.data?.message || JSON.stringify(submitResult.data);
-            // 检查是否是配额用完
-            if (errMsg.includes('quota') || errMsg.includes('exceeded')) {
+            if (isQuotaExceeded(errMsg)) {
                 return res.status(200).json({ status: 'failed', error: '今日图片生成配额已用完，请明天再试' });
             }
             return res.status(502).json({ error: `API错误(${submitResult.status}): ${errMsg}` });
         }
 
         const taskId = submitResult.data?.task_id;
+
+        // 没有task_id
         if (!taskId) {
             const errorMsg = submitResult.data?.error?.message || submitResult.data?.error || submitResult.data?.message || JSON.stringify(submitResult.data);
-            // 检查是否是配额用完
-            if (errorMsg.includes('quota') || errorMsg.includes('exceeded')) {
+            if (isQuotaExceeded(errorMsg)) {
                 return res.status(200).json({ status: 'failed', error: '今日图片生成配额已用完，请明天再试' });
             }
             return res.status(502).json({ error: `提交失败: ${errorMsg}` });
         }
 
-        // 检查是否已经直接返回了结果
-        if (submitResult.data?.task_status === 'SUCCEED') {
-            const pollResult = await httpsGet(
-                MS_API_HOST, `/v1/tasks/${taskId}`, MS_API_KEY, 15000,
-                { 'X-ModelScope-Task-Type': 'image_generation' }
-            );
-            if (pollResult.data?.task_status === 'SUCCEED' && pollResult.data?.output_images?.[0]) {
-                return res.status(200).json({ status: 'succeeded', url: pollResult.data.output_images[0], model: MS_MODEL, task_id: taskId });
-            }
-        }
-
+        console.log(`[ImageGen] Task submitted: ${taskId}`);
         // 返回task_id，让前端轮询
         return res.status(200).json({ status: 'submitted', task_id: taskId });
     } catch (e) {
