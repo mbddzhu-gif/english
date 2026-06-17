@@ -51,6 +51,12 @@ class SceneManager {
         }
 
         const submitData = await submitResponse.json();
+
+        // 检查提交阶段的失败（如配额用完）
+        if (submitData.status === 'failed') {
+            throw new Error(submitData.error || '图片生成提交失败');
+        }
+
         if (submitData.error) {
             throw new Error(submitData.error);
         }
